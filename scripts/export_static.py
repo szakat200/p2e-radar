@@ -8,6 +8,7 @@
 """
 import asyncio
 import json
+import os
 import shutil
 import sys
 from datetime import datetime, timezone
@@ -31,6 +32,34 @@ CHECK_DELAY = 1.0      # пауза между полными проверкам
 
 def _dt_iso(v) -> str | None:
     return v.isoformat() if v else None
+
+
+async def _prev_catalog(http: aiohttp.ClientSession) -> list[dict]:
+    """Прошлый catalog.json с живого сайта — память между запусками CI.
+
+    CoinGecko keyless временами отдаёт урезанные ответы; union со вчерашним
+    каталогом сглаживает провалы. Записи старше 7 дней отбрасываются.
+    """
+    url = os.environ.get("PREV_CATALOG_URL")
+    if not url:
+        return []
+    try:
+        async with http.get(url, timeout=aiohttp.ClientTimeout(total=20)) as resp:
+            if resp.status != 200:
+                return []
+            prev = await resp.json()
+    except Exception:
+        return []
+    week_ago = datetime.now(timezone.utc).timestamp() - 7 * 86400
+    fresh = []
+    for row in prev if isinstance(prev, list) else []:
+        ts = row.get("metrics_updated_at")
+        try:
+            if ts and datetime.fromisoformat(ts).timestamp() >= week_ago:
+                fresh.append(row)
+        except ValueError:
+            continue
+    return fresh
 
 
 async def fetch_catalog(http: aiohttp.ClientSession) -> list[dict]:
@@ -57,7 +86,11 @@ async def fetch_catalog(http: aiohttp.ClientSession) -> list[dict]:
         "metrics_updated_at": datetime.now(timezone.utc).isoformat(),
         "first_seen_at": None,
     } for c in coins]
-    return sorted(rows, key=lambda r: r["market_cap"] or 0, reverse=True)
+
+    # Union с прошлым каталогом сайта: свежие данные приоритетнее
+    by_mint = {r["mint"]: r for r in await _prev_catalog(http)}
+    by_mint.update({r["mint"]: r for r in rows})
+    return sorted(by_mint.values(), key=lambda r: r["market_cap"] or 0, reverse=True)
 
 
 async def full_check(http: aiohttp.ClientSession, row: dict) -> dict:
