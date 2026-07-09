@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "radar-web",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "web_app:app", "--port", "8010"],
+      "port": 8010
+    }
+  ]
+}

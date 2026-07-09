@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>探 — Solana P2E Radar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Serif+JP:wght@400;600;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Edo Noir palette */
+  --bg-void: #06070c;
+  --bg-deep: #0b0d16;
+  --bg-base: #11131f;
+  --bg-elev: #181b2a;
+  --bg-card: #1d2032;
+  --bg-card-hi: #242840;
+
+  --line: #232842;
+  --line-soft: #1c2038;
+  --line-strong: #2e3454;
+
+  --ink-hi: #f2f4fb;
+  --ink: #d8dcec;
+  --ink-mid: #9aa0bd;
+  --ink-low: #5a607d;
+
+  --shu: #e63946;          /* 朱 — риск high */
+  --shu-soft: rgba(230,57,70,0.12);
+  --ai: #4cc9f0;           /* 藍 */
+  --ai-soft: rgba(76,201,240,0.12);
+  --kin: #f4c430;          /* 金 — риск medium */
+  --kin-soft: rgba(244,196,48,0.12);
+  --midori: #06d6a0;       /* 緑 — риск low */
+  --midori-soft: rgba(6,214,160,0.12);
+  --murasaki: #a855f7;
+
+  --r-sm: 10px;
+  --r: 14px;
+  --r-lg: 20px;
+  --t: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow-soft: 0 1px 0 0 rgba(255,255,255,0.03) inset, 0 1px 24px rgba(0,0,0,0.4);
+  --noto: "Noto Serif JP", serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: #2a2f4a; border-radius: 4px; }
+
+html, body { height: 100%; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-void);
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+}
+
+.bg-fx {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(900px 600px at 80% -10%, rgba(230,57,70,0.07), transparent 70%),
+    radial-gradient(800px 500px at -10% 30%, rgba(76,201,240,0.05), transparent 70%),
+    linear-gradient(180deg, var(--bg-void) 0%, var(--bg-deep) 100%);
+}
+.bg-fx::after {
+  content: "探";
+  position: absolute; top: 14vh; right: 8vw;
+  font-family: var(--noto); font-weight: 900;
+  font-size: clamp(280px, 38vw, 620px);
+  color: rgba(230,57,70,0.025);
+  line-height: 1;
+}
+
+.app { display: grid; grid-template-columns: 84px 1fr; min-height: 100vh; }
+
+.sidebar {
+  position: sticky; top: 0; height: 100vh;
+  background: linear-gradient(180deg, var(--bg-deep), var(--bg-void));
+  border-right: 1px solid var(--line-soft);
+  display: flex; flex-direction: column; align-items: center;
+  z-index: 50; padding: 22px 0;
+}
+.brand {
+  font-family: var(--noto); font-weight: 900; font-size: 28px;
+  color: var(--shu); margin-bottom: 28px; user-select: none;
+}
+.nav-btn {
+  width: 56px; height: 56px; margin-bottom: 8px;
+  border: 1px solid transparent; border-radius: var(--r-sm);
+  background: transparent; color: var(--ink-low);
+  font-family: var(--noto); font-size: 20px; font-weight: 600;
+  cursor: pointer; transition: all var(--t);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.nav-btn small { font-family: Inter, sans-serif; font-size: 9px; letter-spacing: 0.04em; }
+.nav-btn:hover { color: var(--ink); background: var(--bg-elev); }
+.nav-btn.active {
+  color: var(--shu); background: var(--shu-soft);
+  border-color: rgba(230,57,70,0.25);
+}
+
+.main { padding: 28px 32px 60px; max-width: 1280px; }
+.page-title {
+  font-family: var(--noto); font-size: 26px; font-weight: 900; color: var(--ink-hi);
+  margin-bottom: 4px;
+}
+.page-sub { color: var(--ink-mid); font-size: 14px; margin-bottom: 24px; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.stat-card {
+  background: var(--bg-card); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 18px 20px; box-shadow: var(--shadow-soft);
+}
+.stat-label { font-size: 12px; color: var(--ink-mid); text-transform: uppercase; letter-spacing: 0.08em; }
+.stat-value { font-family: var(--mono); font-size: 30px; font-weight: 600; color: var(--ink-hi); margin-top: 4px; }
+.stat-value.accent-red { color: var(--shu); }
+
+.panel {
+  background: var(--bg-base); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: 20px; margin-bottom: 22px;
+  box-shadow: var(--shadow-soft);
+}
+.panel h3 { font-family: var(--noto); font-size: 16px; color: var(--ink-hi); margin-bottom: 14px; }
+
+.search-row { margin-bottom: 14px; }
+.search-row input {
+  width: 100%; max-width: 360px; padding: 9px 14px;
+  background: var(--bg-elev); border: 1px solid var(--line);
+  border-radius: var(--r-sm); color: var(--ink); font-size: 14px; outline: none;
+  transition: border-color var(--t);
+}
+.search-row input:focus { border-color: var(--ai); }
+
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th {
+  text-align: left; padding: 8px 12px; color: var(--ink-low);
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+  border-bottom: 1px solid var(--line-strong); white-space: nowrap;
+}
+td { padding: 10px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; white-space: nowrap; }
+tr.rowlink { cursor: pointer; transition: background var(--t); }
+tr.rowlink:hover { background: var(--bg-elev); }
+.num { font-family: var(--mono); }
+.pos { color: var(--midori); }
+.neg { color: var(--shu); }
+.sym { font-weight: 700; color: var(--ink-hi); }
+.tname { color: var(--ink-mid); font-size: 12px; }
+.mint {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-low);
+  max-width: 130px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle;
+}
+
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 99px;
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+}
+.badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.badge.low    { color: var(--midori); background: var(--midori-soft); }
+.badge.medium { color: var(--kin); background: var(--kin-soft); }
+.badge.high   { color: var(--shu); background: var(--shu-soft); }
+.badge.none   { color: var(--ink-low); background: var(--bg-elev); }
+
+.chip {
+  display: inline-block; padding: 2px 9px; margin: 2px 4px 2px 0;
+  border-radius: 99px; font-size: 11.5px;
+  background: var(--bg-elev); border: 1px solid var(--line); color: var(--ink-mid);
+}
+.chip.critical { color: var(--shu); border-color: rgba(230,57,70,0.35); background: var(--shu-soft); }
+.chip.high     { color: #f97316; border-color: rgba(249,115,22,0.3); background: rgba(249,115,22,0.1); }
+.chip.medium   { color: var(--kin); border-color: rgba(244,196,48,0.3); background: var(--kin-soft); }
+.chip.info     { color: var(--ai); border-color: rgba(76,201,240,0.3); background: var(--ai-soft); }
+
+.detail {
+  background: var(--bg-card); border: 1px solid var(--line-strong);
+  border-radius: var(--r); padding: 18px 20px; margin-top: 14px;
+}
+.detail h4 { font-family: var(--noto); color: var(--ink-hi); margin-bottom: 10px; }
+.detail .flag-row { padding: 7px 0; border-bottom: 1px solid var(--line-soft); font-size: 13.5px; }
+.detail .flag-row:last-child { border-bottom: none; }
+.detail .flag-title { font-weight: 600; color: var(--ink-hi); }
+.detail .flag-detail { color: var(--ink-mid); }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 12px 0; }
+.kv div { font-size: 13px; color: var(--ink-mid); }
+.kv b { color: var(--ink-hi); font-family: var(--mono); font-weight: 600; display: block; }
+
+.alert-item {
+  padding: 12px 14px; border-left: 3px solid var(--shu);
+  background: var(--bg-card); border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  margin-bottom: 10px; font-size: 13.5px;
+}
+.alert-item .atime { color: var(--ink-low); font-size: 11.5px; font-family: var(--mono); }
+.alert-item.NEW_CATALOG_TOKEN { border-left-color: var(--ai); }
+.alert-item.NEW_RED_FLAG { border-left-color: var(--kin); }
+
+.empty { color: var(--ink-low); padding: 24px; text-align: center; font-size: 14px; }
+.loading { color: var(--ink-low); padding: 24px; text-align: center; }
+
+@media (max-width: 720px) {
+  .app { grid-template-columns: 64px 1fr; }
+  .main { padding: 18px 14px 40px; }
+  .nav-btn { width: 48px; height: 48px; font-size: 16px; }
+}
+</style>
+</head>
+<body>
+<div class="bg-fx"></div>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">探</div>
+    <button class="nav-btn active" data-page="overview">概<small>Обзор</small></button>
+    <button class="nav-btn" data-page="catalog">遊<small>Игры</small></button>
+    <button class="nav-btn" data-page="watchlist">賭<small>Вотч</small></button>
+    <button class="nav-btn" data-page="alerts">警<small>Алерты</small></button>
+  </aside>
+  <main class="main" id="content"><div class="loading">Загрузка…</div></main>
+</div>
+
+<script>
+const $ = (sel, el = document) => el.querySelector(sel);
+const content = $('#content');
+let cache = {};
+
+async function api(path) {
+  if (cache[path]) return cache[path];
+  const r = await fetch('/api' + path);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const data = await r.json();
+  cache[path] = data;
+  return data;
+}
+
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function fmtUsd(v) {
+  if (v == null) return '—';
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
+  if (v >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
+  if (v >= 1) return '$' + v.toFixed(2);
+  return '$' + v.toFixed(8).replace(/0+$/, '');
+}
+
+function fmtPct(v) {
+  if (v == null) return '—';
+  const cls = v >= 0 ? 'pos' : 'neg';
+  return `<span class="${cls}">${v >= 0 ? '+' : ''}${v.toFixed(1)}%</span>`;
+}
+
+function riskBadge(t) {
+  if (t.risk_score == null) return '<span class="badge none">не оценён</span>';
+  const label = {low: 'низкий', medium: 'средний', high: 'высокий'}[t.risk_level] || '?';
+  return `<span class="badge ${t.risk_level}">${t.risk_score}/100 ${label}</span>`;
+}
+
+function flagChips(flags, max = 4) {
+  if (!flags || !flags.length) return '<span class="chip">чисто</span>';
+  const shown = flags.slice(0, max)
+    .map(f => `<span class="chip ${escHtml(f.severity)}" title="${escHtml(f.detail)}">${escHtml(f.title)}</span>`);
+  if (flags.length > max) shown.push(`<span class="chip">+${flags.length - max}</span>`);
+  return shown.join('');
+}
+
+/* ===== Pages ===== */
+
+async function renderOverview() {
+  const [stats, tokens, alerts] = await Promise.all([
+    api('/stats'), api('/tokens'), api('/alerts?limit=5')]);
+  const worst = tokens.slice(0, 5);
+  content.innerHTML = `
+    <div class="page-title">Обзор</div>
+    <div class="page-sub">Solana P2E Radar — рынок игровых токенов и красные флаги</div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">Игр в каталоге</div>
+        <div class="stat-value">${stats.catalog_total}</div></div>
+      <div class="stat-card"><div class="stat-label">В вотчлисте</div>
+        <div class="stat-value">${stats.watched}</div></div>
+      <div class="stat-card"><div class="stat-label">Высокий риск</div>
+        <div class="stat-value accent-red">${stats.watched_high_risk}</div></div>
+      <div class="stat-card"><div class="stat-label">Алертов за 24ч</div>
+        <div class="stat-value">${stats.alerts_24h}</div></div>
+    </div>
+    <div class="panel">
+      <h3>Самые рискованные в вотчлисте</h3>
+      ${worst.length ? tokenTable(worst) : '<div class="empty">Вотчлист пуст — добавь токены через бота: /watch &lt;mint&gt;</div>'}
+    </div>
+    <div class="panel">
+      <h3>Последние алерты</h3>
+      ${alerts.length ? alerts.map(alertItem).join('') : '<div class="empty">Алертов пока не было</div>'}
+    </div>`;
+  bindRows(worst);
+}
+
+function tokenTable(tokens) {
+  return `<div class="tbl-wrap"><table>
+    <thead><tr><th>Токен</th><th>Цена</th><th>24ч</th><th>Ликвидность</th>
+      <th>Объём 24ч</th><th>MCap</th><th>Риск</th><th>Флаги</th></tr></thead>
+    <tbody>${tokens.map(t => `
+      <tr class="rowlink" data-mint="${escHtml(t.mint)}">
+        <td><span class="sym">${escHtml(t.symbol || '?')}</span><br>
+            <span class="tname">${escHtml(t.name || '')}</span></td>
+        <td class="num">${fmtUsd(t.price_usd)}</td>
+        <td class="num">${fmtPct(t.price_change_h24)}</td>
+        <td class="num">${fmtUsd(t.liquidity_usd)}</td>
+        <td class="num">${fmtUsd(t.volume_h24)}</td>
+        <td class="num">${fmtUsd(t.market_cap)}</td>
+        <td>${riskBadge(t)}</td>
+        <td>${flagChips(t.risk_flags)}</td>
+      </tr>`).join('')}</tbody></table></div>`;
+}
+
+async function renderCatalog() {
+  const rows = await api('/catalog?limit=200');
+  content.innerHTML = `
+    <div class="page-title">Игры</div>
+    <div class="page-sub">Каталог P2E/gaming токенов на Solana (CoinGecko) — ${rows.length} шт.</div>
+    <div class="panel">
+      <div class="search-row"><input id="catSearch" placeholder="Поиск по названию или тикеру…"></div>
+      <div id="catTable"></div>
+    </div>`;
+  const draw = (list) => {
+    $('#catTable').innerHTML = list.length ? `<div class="tbl-wrap"><table>
+      <thead><tr><th>#</th><th>Токен</th><th>Категории</th><th>Цена</th>
+        <th>24ч</th><th>MCap</th><th>Mint</th></tr></thead>
+      <tbody>${list.map((t, i) => `
+        <tr class="rowlink" data-mint="${escHtml(t.mint)}">
+          <td class="num">${i + 1}</td>
+          <td><span class="sym">${escHtml(t.symbol || '?')}</span><br>
+              <span class="tname">${escHtml(t.name || '')}</span></td>
+          <td>${(t.categories || []).map(c => `<span class="chip">${escHtml(c)}</span>`).join('')}</td>
+          <td class="num">${fmtUsd(t.price_usd)}</td>
+          <td class="num">${fmtPct(t.price_change_h24)}</td>
+          <td class="num">${fmtUsd(t.market_cap)}</td>
+          <td><span class="mint" title="${escHtml(t.mint)}">${escHtml(t.mint)}</span></td>
+        </tr>`).join('')}</tbody></table></div>`
+      : '<div class="empty">Ничего не найдено</div>';
+    bindRows(list);
+  };
+  draw(rows);
+  $('#catSearch').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    draw(!q ? rows : rows.filter(t =>
+      (t.name || '').toLowerCase().includes(q) ||
+      (t.symbol || '').toLowerCase().includes(q)));
+  });
+}
+
+async function renderWatchlist() {
+  const tokens = await api('/tokens');
+  content.innerHTML = `
+    <div class="page-title">Вотчлист</div>
+    <div class="page-sub">Токены под мониторингом (управление через бота: /watch, /unwatch)</div>
+    <div class="panel">
+      ${tokens.length ? tokenTable(tokens) : '<div class="empty">Пусто. Добавь токен в боте: /watch &lt;mint&gt;</div>'}
+      <div id="detail"></div>
+    </div>`;
+  bindRows(tokens);
+}
+
+async function showDetail(mint) {
+  const host = $('#detail') || content.appendChild(Object.assign(
+    document.createElement('div'), {id: 'detail'}));
+  host.innerHTML = '<div class="loading">Загрузка деталей…</div>';
+  try {
+    const d = await api('/tokens/' + mint);
+    const s = d.security;
+    const yn = (v, yes, no) => v == null ? '—' : (v ? yes : no);
+    host.innerHTML = `<div class="detail">
+      <h4>${escHtml(d.symbol || '?')} ${escHtml(d.name || '')} ${riskBadge(d)}</h4>
+      <div style="font-family:var(--mono);font-size:12px;color:var(--ink-low)">${escHtml(d.mint)}</div>
+      <div class="kv">
+        <div>Цена<b>${fmtUsd(d.price_usd)}</b></div>
+        <div>Ликвидность<b>${fmtUsd(d.liquidity_usd)}</b></div>
+        <div>Объём 24ч<b>${fmtUsd(d.volume_h24)}</b></div>
+        <div>Market cap<b>${fmtUsd(d.market_cap)}</b></div>
+        <div>DEX<b>${escHtml(d.dex_id || '—')}</b></div>
+        ${s ? `
+        <div>Mint authority<b>${yn(s.mint_authority_active, '🔴 активен', '🟢 отозван')}</b></div>
+        <div>Freeze authority<b>${yn(s.freeze_authority_active, '🔴 активен', '🟢 отозван')}</b></div>
+        <div>Топ-10 холдеров<b>${s.top10_holder_pct != null ? s.top10_holder_pct.toFixed(0) + '%' : '—'}</b></div>
+        <div>LP locked<b>${s.lp_locked_pct != null ? s.lp_locked_pct.toFixed(0) + '%' : '—'}</b></div>
+        <div>Холдеров<b>${s.holders_count ?? '—'}</b></div>` : ''}
+      </div>
+      ${(d.risk_flags && d.risk_flags.length) ? d.risk_flags.map(f => `
+        <div class="flag-row"><span class="chip ${escHtml(f.severity)}">${escHtml(f.severity)}</span>
+          <span class="flag-title">${escHtml(f.title)}</span> —
+          <span class="flag-detail">${escHtml(f.detail)}</span></div>`).join('')
+      : '<div class="flag-row">✅ Красных флагов нет</div>'}
+    </div>`;
+    host.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  } catch (e) {
+    host.innerHTML = `<div class="detail"><div class="empty">Не удалось загрузить: ${escHtml(e.message)}</div></div>`;
+  }
+}
+
+function bindRows() {
+  content.querySelectorAll('tr.rowlink').forEach(tr =>
+    tr.addEventListener('click', () => showDetail(tr.dataset.mint)));
+}
+
+function alertItem(a) {
+  const dt = a.sent_at ? new Date(a.sent_at).toLocaleString('ru-RU') : '';
+  const text = (a.message || '').replace(/<[^>]+>/g, '');
+  return `<div class="alert-item ${escHtml(a.alert_type)}">
+    <div class="atime">${escHtml(dt)} · ${escHtml(a.alert_type)}</div>
+    <div>${escHtml(text)}</div></div>`;
+}
+
+async function renderAlerts() {
+  const alerts = await api('/alerts?limit=100');
+  content.innerHTML = `
+    <div class="page-title">Алерты</div>
+    <div class="page-sub">История отправленных уведомлений</div>
+    <div class="panel">
+      ${alerts.length ? alerts.map(alertItem).join('') : '<div class="empty">Алертов пока не было</div>'}
+    </div>`;
+}
+
+const pages = {
+  overview: renderOverview,
+  catalog: renderCatalog,
+  watchlist: renderWatchlist,
+  alerts: renderAlerts,
+};
+
+async function navigate(page) {
+  document.querySelectorAll('.nav-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.page === page));
+  cache = {};
+  content.innerHTML = '<div class="loading">Загрузка…</div>';
+  try {
+    await pages[page]();
+  } catch (e) {
+    content.innerHTML = `<div class="empty">Ошибка загрузки: ${escHtml(e.message)}.<br>
+      Проверь, что API запущен (uvicorn web_app:app).</div>`;
+  }
+}
+
+document.querySelectorAll('.nav-btn').forEach(b =>
+  b.addEventListener('click', () => navigate(b.dataset.page)));
+navigate('overview');
+</script>
+</body>
+</html>
