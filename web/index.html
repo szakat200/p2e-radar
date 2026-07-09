@@ -228,9 +228,19 @@ const $ = (sel, el = document) => el.querySelector(sel);
 const content = $('#content');
 let cache = {};
 
+// GitHub Pages / file:// — читаем статические JSON вместо живого API
+const IS_STATIC = location.protocol === 'file:' || location.hostname.endsWith('.github.io');
+
+function staticPath(path) {
+  const clean = path.split('?')[0];
+  if (clean.startsWith('/tokens/')) return 'data/tokens/' + clean.slice('/tokens/'.length) + '.json';
+  return 'data' + clean + '.json'; // /stats /catalog /tokens /alerts
+}
+
 async function api(path) {
   if (cache[path]) return cache[path];
-  const r = await fetch('/api' + path);
+  const url = IS_STATIC ? staticPath(path) : '/api' + path;
+  const r = await fetch(url);
   if (!r.ok) throw new Error('HTTP ' + r.status);
   const data = await r.json();
   cache[path] = data;
@@ -398,7 +408,9 @@ async function showDetail(mint) {
     </div>`;
     host.scrollIntoView({behavior: 'smooth', block: 'nearest'});
   } catch (e) {
-    host.innerHTML = `<div class="detail"><div class="empty">Не удалось загрузить: ${escHtml(e.message)}</div></div>`;
+    host.innerHTML = `<div class="detail"><div class="empty">${IS_STATIC
+      ? 'Полная проверка есть только у вотчлиста и топ-20 каталога. Проверь локально: /check в боте.'
+      : 'Не удалось загрузить: ' + escHtml(e.message)}</div></div>`;
   }
 }
 

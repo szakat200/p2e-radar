@@ -1,0 +1,177 @@
+"""Экспорт статического сайта для GitHub Pages.
+
+Запускается в GitHub Actions по крону. Не использует БД — собирает данные
+напрямую из API и пишет JSON в _site/data/ + копирует дашборд.
+
+Бюджет времени CI: ~90 сек. Полная проверка риска (DexScreener + RugCheck) —
+только для вотчлиста (watchlist.json) и топ-N каталога по market cap.
+"""
+import asyncio
+import json
+import shutil
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(BASE_DIR))
+
+import aiohttp  # noqa: E402
+
+from analyzer.risk_engine import evaluate  # noqa: E402
+from collectors import coingecko  # noqa: E402
+from collectors.dexscreener import get_market  # noqa: E402
+from collectors.onchain import get_security  # noqa: E402
+
+SITE_DIR = BASE_DIR / "_site"
+DATA_DIR = SITE_DIR / "data"
+TOP_N_FULL_CHECK = 20  # сколько топ-токенов каталога проверять полностью
+CHECK_DELAY = 1.0      # пауза между полными проверками (rate limits)
+
+
+def _dt_iso(v) -> str | None:
+    return v.isoformat() if v else None
+
+
+async def fetch_catalog(http: aiohttp.ClientSession) -> list[dict]:
+    """Каталог P2E×Solana из CoinGecko (без БД)."""
+    mints = await coingecko._solana_mints(http)
+    if not mints:
+        raise RuntimeError("CoinGecko platform mapping failed")
+
+    rows: dict[str, dict] = {}
+    for category in coingecko.CATEGORIES:
+        await asyncio.sleep(coingecko._REQUEST_DELAY)
+        coins = await coingecko._get(http, "/api/v3/coins/markets", {
+            "vs_currency": "usd", "category": category,
+            "order": "market_cap_desc", "per_page": "250", "page": "1",
+        })
+        if not isinstance(coins, list):
+            continue
+        for coin in coins:
+            mint = mints.get(coin["id"])
+            if not mint:
+                continue
+            if mint in rows:
+                if category not in rows[mint]["categories"]:
+                    rows[mint]["categories"].append(category)
+                continue
+            rows[mint] = {
+                "mint": mint,
+                "symbol": (coin.get("symbol") or "").upper() or None,
+                "name": coin.get("name"),
+                "source": "catalog",
+                "coingecko_id": coin["id"],
+                "categories": [category],
+                "watched": False,
+                "price_usd": coin.get("current_price"),
+                "liquidity_usd": None,
+                "volume_h24": coin.get("total_volume"),
+                "market_cap": coin.get("market_cap"),
+                "price_change_h24": coin.get("price_change_percentage_24h"),
+                "pair_created_at": None, "dex_id": None,
+                "risk_score": None, "risk_level": None, "risk_flags": [],
+                "metrics_updated_at": datetime.now(timezone.utc).isoformat(),
+                "first_seen_at": None,
+            }
+    return sorted(rows.values(), key=lambda r: r["market_cap"] or 0, reverse=True)
+
+
+async def full_check(http: aiohttp.ClientSession, row: dict) -> dict:
+    """Полная проверка: DexScreener + RugCheck/RPC + risk engine. Обновляет row."""
+    mint = row["mint"]
+    market = await get_market(http, mint)
+    security = await get_security(http, mint)
+    report = evaluate(market, security, mint)
+
+    if market:
+        row.update({
+            "price_usd": market["price_usd"],
+            "liquidity_usd": market["liquidity_usd"],
+            "volume_h24": market["volume_h24"],
+            "market_cap": market["market_cap"] or row.get("market_cap"),
+            "price_change_h24": market["price_change_h24"],
+            "pair_created_at": _dt_iso(market["pair_created_at"]),
+            "dex_id": market["dex_id"],
+        })
+        row["symbol"] = row.get("symbol") or market["symbol"]
+        row["name"] = row.get("name") or market["name"]
+    row["risk_score"] = report.score
+    row["risk_level"] = report.level
+    row["risk_flags"] = [f.as_dict() for f in report.flags]
+
+    # Файл деталей для клика по строке
+    detail = {
+        **row,
+        "security": security and {
+            "mint_authority_active": security["mint_authority_active"],
+            "freeze_authority_active": security["freeze_authority_active"],
+            "top10_holder_pct": security["top10_holder_pct"],
+            "lp_locked_pct": security["lp_locked_pct"],
+            "rugcheck_score": security["rugcheck_score"],
+            "holders_count": security["holders_count"],
+            "source": security["source"],
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        },
+        "snapshots": [],
+    }
+    (DATA_DIR / "tokens").mkdir(parents=True, exist_ok=True)
+    (DATA_DIR / "tokens" / f"{mint}.json").write_text(
+        json.dumps(detail, ensure_ascii=False), encoding="utf-8")
+    return row
+
+
+async def main() -> None:
+    shutil.rmtree(SITE_DIR, ignore_errors=True)
+    DATA_DIR.mkdir(parents=True)
+
+    watchlist_mints: list[str] = json.loads(
+        (BASE_DIR / "watchlist.json").read_text(encoding="utf-8"))["mints"]
+
+    async with aiohttp.ClientSession() as http:
+        catalog = await fetch_catalog(http)
+        by_mint = {r["mint"]: r for r in catalog}
+
+        # Вотчлист: полная проверка каждого mint
+        watch_rows = []
+        for mint in watchlist_mints:
+            row = by_mint.get(mint) or {
+                "mint": mint, "symbol": None, "name": None, "source": "manual",
+                "coingecko_id": None, "categories": [], "watched": True,
+                "market_cap": None, "risk_flags": [],
+                "first_seen_at": None, "metrics_updated_at": None,
+            }
+            row["watched"] = True
+            await asyncio.sleep(CHECK_DELAY)
+            watch_rows.append(await full_check(http, row))
+
+        # Топ каталога: полная проверка (риск-бейджи на сайте)
+        checked = 0
+        for row in catalog:
+            if row["watched"] or checked >= TOP_N_FULL_CHECK:
+                continue
+            await asyncio.sleep(CHECK_DELAY)
+            await full_check(http, row)
+            checked += 1
+
+    watch_rows.sort(key=lambda r: r["risk_score"] or 0, reverse=True)
+    (DATA_DIR / "catalog.json").write_text(
+        json.dumps(catalog, ensure_ascii=False), encoding="utf-8")
+    (DATA_DIR / "tokens.json").write_text(
+        json.dumps(watch_rows, ensure_ascii=False), encoding="utf-8")
+    (DATA_DIR / "alerts.json").write_text("[]", encoding="utf-8")
+    (DATA_DIR / "stats.json").write_text(json.dumps({
+        "catalog_total": len(catalog),
+        "watched": len(watch_rows),
+        "watched_high_risk": sum(1 for r in watch_rows if r["risk_level"] == "high"),
+        "alerts_24h": 0,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }), encoding="utf-8")
+
+    shutil.copy(BASE_DIR / "web" / "index.html", SITE_DIR / "index.html")
+    print(f"OK: {len(catalog)} catalog, {len(watch_rows)} watched, "
+          f"{checked} top checked -> {SITE_DIR}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
