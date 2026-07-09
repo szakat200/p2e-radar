@@ -62,6 +62,7 @@ async def fetch_catalog(http: aiohttp.ClientSession) -> list[dict]:
                 "name": coin.get("name"),
                 "source": "catalog",
                 "coingecko_id": coin["id"],
+                "image_url": coin.get("image"),
                 "categories": [category],
                 "watched": False,
                 "price_usd": coin.get("current_price"),

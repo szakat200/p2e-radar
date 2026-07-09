@@ -32,6 +32,7 @@ def _token_dict(t: Token) -> dict:
     return {
         "mint": t.mint, "symbol": t.symbol, "name": t.name,
         "source": t.source, "coingecko_id": t.coingecko_id,
+        "image_url": t.image_url,
         "categories": t.categories or [], "watched": t.watched,
         "price_usd": t.price_usd, "liquidity_usd": t.liquidity_usd,
         "volume_h24": t.volume_h24, "market_cap": t.market_cap,

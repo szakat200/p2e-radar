@@ -33,6 +33,7 @@ class Token(Base):
 
     source: Mapped[str] = mapped_column(String(16), default="manual")  # catalog | manual
     coingecko_id: Mapped[str | None] = mapped_column(String(128), index=True)
+    image_url: Mapped[str | None] = mapped_column(String(256))
     categories: Mapped[list | None] = mapped_column(JSON)  # ["play-to-earn", "gaming"]
     description: Mapped[str | None] = mapped_column(Text)
 

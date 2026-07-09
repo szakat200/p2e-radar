@@ -26,21 +26,21 @@
   --ink-mid: #9aa0bd;
   --ink-low: #5a607d;
 
-  --shu: #e63946;          /* 朱 — риск high */
-  --shu-soft: rgba(230,57,70,0.12);
-  --ai: #4cc9f0;           /* 藍 */
-  --ai-soft: rgba(76,201,240,0.12);
-  --kin: #f4c430;          /* 金 — риск medium */
-  --kin-soft: rgba(244,196,48,0.12);
-  --midori: #06d6a0;       /* 緑 — риск low */
-  --midori-soft: rgba(6,214,160,0.12);
-  --murasaki: #a855f7;
+  --shu: #e63946;          /* 朱 — единственный главный акцент */
+  --shu-soft: rgba(230,57,70,0.10);
+  --ai: #4cc9f0;
+  --ai-soft: rgba(76,201,240,0.10);
+  --kin: #f4c430;
+  --kin-soft: rgba(244,196,48,0.10);
+  --midori: #06d6a0;
+  --midori-soft: rgba(6,214,160,0.10);
 
   --r-sm: 10px;
-  --r: 14px;
-  --r-lg: 20px;
-  --t: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  --r: 16px;
+  --r-lg: 24px;
+  --t: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   --shadow-soft: 0 1px 0 0 rgba(255,255,255,0.03) inset, 0 1px 24px rgba(0,0,0,0.4);
+  --shadow-lift: 0 1px 0 0 rgba(255,255,255,0.05) inset, 0 16px 40px rgba(0,0,0,0.5), 0 0 0 1px var(--line-strong);
   --noto: "Noto Serif JP", serif;
   --mono: "JetBrains Mono", ui-monospace, monospace;
 }
@@ -58,109 +58,172 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .bg-fx {
   position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background:
-    radial-gradient(900px 600px at 80% -10%, rgba(230,57,70,0.07), transparent 70%),
+    radial-gradient(900px 600px at 80% -10%, rgba(230,57,70,0.08), transparent 70%),
     radial-gradient(800px 500px at -10% 30%, rgba(76,201,240,0.05), transparent 70%),
     linear-gradient(180deg, var(--bg-void) 0%, var(--bg-deep) 100%);
 }
+.bg-fx::before {
+  content: ""; position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+}
 .bg-fx::after {
   content: "探";
-  position: absolute; top: 14vh; right: 8vw;
+  position: absolute; top: 10vh; right: 6vw;
   font-family: var(--noto); font-weight: 900;
-  font-size: clamp(280px, 38vw, 620px);
-  color: rgba(230,57,70,0.025);
+  font-size: clamp(280px, 38vw, 640px);
+  color: rgba(230,57,70,0.03);
   line-height: 1;
 }
 
-.app { display: grid; grid-template-columns: 84px 1fr; min-height: 100vh; }
+.app { display: grid; grid-template-columns: 92px 1fr; min-height: 100vh; }
 
+/* ===== Sidebar ===== */
 .sidebar {
   position: sticky; top: 0; height: 100vh;
   background: linear-gradient(180deg, var(--bg-deep), var(--bg-void));
   border-right: 1px solid var(--line-soft);
   display: flex; flex-direction: column; align-items: center;
-  z-index: 50; padding: 22px 0;
+  z-index: 50; padding: 26px 0;
 }
 .brand {
-  font-family: var(--noto); font-weight: 900; font-size: 28px;
-  color: var(--shu); margin-bottom: 28px; user-select: none;
+  font-family: var(--noto); font-weight: 900; font-size: 30px;
+  color: var(--shu); margin-bottom: 34px; user-select: none;
+  text-shadow: 0 0 32px rgba(230,57,70,0.4);
 }
 .nav-btn {
-  width: 56px; height: 56px; margin-bottom: 8px;
+  width: 62px; height: 62px; margin-bottom: 10px;
   border: 1px solid transparent; border-radius: var(--r-sm);
   background: transparent; color: var(--ink-low);
-  font-family: var(--noto); font-size: 20px; font-weight: 600;
+  font-family: var(--noto); font-size: 21px; font-weight: 600;
   cursor: pointer; transition: all var(--t);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
 }
-.nav-btn small { font-family: Inter, sans-serif; font-size: 9px; letter-spacing: 0.04em; }
-.nav-btn:hover { color: var(--ink); background: var(--bg-elev); }
+.nav-btn small { font-family: Inter, sans-serif; font-size: 9.5px; letter-spacing: 0.05em; font-weight: 600; }
+.nav-btn:hover { color: var(--ink); background: var(--bg-elev); transform: translateY(-1px); }
 .nav-btn.active {
   color: var(--shu); background: var(--shu-soft);
   border-color: rgba(230,57,70,0.25);
 }
 
-.main { padding: 28px 32px 60px; max-width: 1280px; }
+/* ===== Main ===== */
+.main { padding: 44px 52px 90px; max-width: 1340px; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.page { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.page > * + * { margin-top: 30px; }
+
 .page-title {
-  font-family: var(--noto); font-size: 26px; font-weight: 900; color: var(--ink-hi);
-  margin-bottom: 4px;
+  font-family: var(--noto); font-size: clamp(30px, 4vw, 44px);
+  font-weight: 900; color: var(--ink-hi); line-height: 1.15;
+  letter-spacing: -0.01em;
 }
-.page-sub { color: var(--ink-mid); font-size: 14px; margin-bottom: 24px; }
+.page-title .accent { color: var(--shu); }
+.page-sub { color: var(--ink-mid); font-size: 15px; margin-top: 10px; max-width: 620px; }
 
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 28px; }
-.stat-card {
-  background: var(--bg-card); border: 1px solid var(--line);
-  border-radius: var(--r); padding: 18px 20px; box-shadow: var(--shadow-soft);
-}
-.stat-label { font-size: 12px; color: var(--ink-mid); text-transform: uppercase; letter-spacing: 0.08em; }
-.stat-value { font-family: var(--mono); font-size: 30px; font-weight: 600; color: var(--ink-hi); margin-top: 4px; }
-.stat-value.accent-red { color: var(--shu); }
-
-.panel {
-  background: var(--bg-base); border: 1px solid var(--line);
-  border-radius: var(--r-lg); padding: 20px; margin-bottom: 22px;
+/* ===== Hero ===== */
+.hero {
+  position: relative; overflow: hidden;
+  background: linear-gradient(135deg, var(--bg-base) 0%, var(--bg-deep) 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: 44px 48px;
   box-shadow: var(--shadow-soft);
 }
-.panel h3 { font-family: var(--noto); font-size: 16px; color: var(--ink-hi); margin-bottom: 14px; }
+.hero::after {
+  content: "遊"; position: absolute; right: 28px; bottom: -30px;
+  font-family: var(--noto); font-weight: 900; font-size: 200px;
+  color: rgba(230,57,70,0.05); line-height: 1; pointer-events: none;
+}
+.hero-label {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--shu); margin-bottom: 14px;
+}
+.hero-value {
+  font-family: var(--mono); font-weight: 600;
+  font-size: clamp(44px, 6vw, 72px); color: var(--ink-hi);
+  line-height: 1.05; letter-spacing: -0.02em;
+}
+.hero-caption { color: var(--ink-mid); font-size: 14.5px; margin-top: 12px; }
+.hero-row {
+  display: flex; flex-wrap: wrap; gap: 40px;
+  margin-top: 34px; padding-top: 26px; border-top: 1px solid var(--line-soft);
+}
+.hero-stat .hs-label { font-size: 11.5px; color: var(--ink-low); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
+.hero-stat .hs-value { font-family: var(--mono); font-size: 26px; font-weight: 600; color: var(--ink-hi); margin-top: 3px; }
+.hero-stat .hs-value.red { color: var(--shu); }
 
-.search-row { margin-bottom: 14px; }
-.search-row input {
-  width: 100%; max-width: 360px; padding: 9px 14px;
+/* ===== Panels & cards ===== */
+.panel {
+  background: var(--bg-base); border: 1px solid var(--line);
+  border-radius: var(--r-lg); padding: 30px; box-shadow: var(--shadow-soft);
+}
+.panel h3 {
+  font-family: var(--noto); font-size: 19px; color: var(--ink-hi);
+  margin-bottom: 20px; font-weight: 600;
+}
+
+.card-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 18px;
+}
+.tok-card {
+  background: var(--bg-card); border: 1px solid var(--line);
+  border-radius: var(--r); padding: 20px;
+  cursor: pointer; transition: transform var(--t), box-shadow var(--t), border-color var(--t);
+}
+.tok-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lift); border-color: var(--line-strong); }
+.tok-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.tok-logo {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--bg-elev); object-fit: cover; flex-shrink: 0;
+  border: 1px solid var(--line);
+}
+.tok-logo-ph {
+  width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
   background: var(--bg-elev); border: 1px solid var(--line);
-  border-radius: var(--r-sm); color: var(--ink); font-size: 14px; outline: none;
-  transition: border-color var(--t);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--noto); font-weight: 900; color: var(--ink-low); font-size: 18px;
 }
-.search-row input:focus { border-color: var(--ai); }
+.tok-sym { font-weight: 800; font-size: 16px; color: var(--ink-hi); }
+.tok-name { color: var(--ink-mid); font-size: 12.5px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+.tok-metrics { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+.tok-mcap { font-family: var(--mono); font-size: 19px; font-weight: 600; color: var(--ink-hi); }
+.tok-mcap small { display: block; font-size: 10.5px; color: var(--ink-low); font-family: Inter, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.tok-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 
+/* ===== Tables ===== */
 .tbl-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th {
-  text-align: left; padding: 8px 12px; color: var(--ink-low);
-  font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
-  border-bottom: 1px solid var(--line-strong); white-space: nowrap;
+  text-align: left; padding: 10px 14px; color: var(--ink-low);
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--line-strong); white-space: nowrap; font-weight: 700;
 }
-td { padding: 10px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; white-space: nowrap; }
+td { padding: 14px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; white-space: nowrap; }
 tr.rowlink { cursor: pointer; transition: background var(--t); }
 tr.rowlink:hover { background: var(--bg-elev); }
 .num { font-family: var(--mono); }
 .pos { color: var(--midori); }
 .neg { color: var(--shu); }
+.cell-tok { display: flex; align-items: center; gap: 11px; }
+.cell-tok img, .cell-tok .tok-logo-ph { width: 34px; height: 34px; font-size: 14px; }
+.cell-tok img { border-radius: 50%; background: var(--bg-elev); border: 1px solid var(--line); }
 .sym { font-weight: 700; color: var(--ink-hi); }
 .tname { color: var(--ink-mid); font-size: 12px; }
-.mint {
-  font-family: var(--mono); font-size: 11px; color: var(--ink-low);
-  max-width: 130px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle;
-}
 
+/* ===== Badges & chips ===== */
 .badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 3px 10px; border-radius: 99px;
-  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 4px 12px; border-radius: 99px;
+  font-family: var(--mono); font-size: 12px; font-weight: 600; white-space: nowrap;
 }
 .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .badge.low    { color: var(--midori); background: var(--midori-soft); }
@@ -169,44 +232,64 @@ tr.rowlink:hover { background: var(--bg-elev); }
 .badge.none   { color: var(--ink-low); background: var(--bg-elev); }
 
 .chip {
-  display: inline-block; padding: 2px 9px; margin: 2px 4px 2px 0;
+  display: inline-block; padding: 2px 10px; margin: 2px 5px 2px 0;
   border-radius: 99px; font-size: 11.5px;
   background: var(--bg-elev); border: 1px solid var(--line); color: var(--ink-mid);
 }
 .chip.critical { color: var(--shu); border-color: rgba(230,57,70,0.35); background: var(--shu-soft); }
-.chip.high     { color: #f97316; border-color: rgba(249,115,22,0.3); background: rgba(249,115,22,0.1); }
+.chip.high     { color: #f97316; border-color: rgba(249,115,22,0.3); background: rgba(249,115,22,0.08); }
 .chip.medium   { color: var(--kin); border-color: rgba(244,196,48,0.3); background: var(--kin-soft); }
 .chip.info     { color: var(--ai); border-color: rgba(76,201,240,0.3); background: var(--ai-soft); }
 
+/* ===== Search ===== */
+.search-row { margin-bottom: 22px; }
+.search-row input {
+  width: 100%; max-width: 420px; padding: 12px 18px;
+  background: var(--bg-elev); border: 1px solid var(--line);
+  border-radius: 99px; color: var(--ink); font-size: 14.5px; outline: none;
+  transition: border-color var(--t), box-shadow var(--t);
+}
+.search-row input:focus { border-color: var(--shu); box-shadow: 0 0 0 3px var(--shu-soft); }
+.search-row input::placeholder { color: var(--ink-low); }
+
+/* ===== Detail ===== */
 .detail {
   background: var(--bg-card); border: 1px solid var(--line-strong);
-  border-radius: var(--r); padding: 18px 20px; margin-top: 14px;
+  border-radius: var(--r); padding: 26px 28px; margin-top: 20px;
+  animation: rise 0.35s cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
-.detail h4 { font-family: var(--noto); color: var(--ink-hi); margin-bottom: 10px; }
-.detail .flag-row { padding: 7px 0; border-bottom: 1px solid var(--line-soft); font-size: 13.5px; }
+.detail h4 { font-family: var(--noto); font-size: 19px; color: var(--ink-hi); margin-bottom: 10px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.detail .flag-row { padding: 10px 0; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
 .detail .flag-row:last-child { border-bottom: none; }
 .detail .flag-title { font-weight: 600; color: var(--ink-hi); }
 .detail .flag-detail { color: var(--ink-mid); }
-.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 12px 0; }
-.kv div { font-size: 13px; color: var(--ink-mid); }
-.kv b { color: var(--ink-hi); font-family: var(--mono); font-weight: 600; display: block; }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 18px 0; }
+.kv div { font-size: 12.5px; color: var(--ink-mid); }
+.kv b { color: var(--ink-hi); font-family: var(--mono); font-weight: 600; display: block; font-size: 15px; margin-top: 2px; }
 
+/* ===== Alerts ===== */
 .alert-item {
-  padding: 12px 14px; border-left: 3px solid var(--shu);
+  padding: 16px 18px; border-left: 3px solid var(--shu);
   background: var(--bg-card); border-radius: 0 var(--r-sm) var(--r-sm) 0;
-  margin-bottom: 10px; font-size: 13.5px;
+  margin-bottom: 12px; font-size: 14px;
+  transition: transform var(--t);
 }
-.alert-item .atime { color: var(--ink-low); font-size: 11.5px; font-family: var(--mono); }
+.alert-item:hover { transform: translateX(3px); }
+.alert-item .atime { color: var(--ink-low); font-size: 11.5px; font-family: var(--mono); margin-bottom: 4px; }
 .alert-item.NEW_CATALOG_TOKEN { border-left-color: var(--ai); }
 .alert-item.NEW_RED_FLAG { border-left-color: var(--kin); }
 
-.empty { color: var(--ink-low); padding: 24px; text-align: center; font-size: 14px; }
-.loading { color: var(--ink-low); padding: 24px; text-align: center; }
+.empty { color: var(--ink-low); padding: 34px; text-align: center; font-size: 14.5px; }
+.loading { color: var(--ink-low); padding: 34px; text-align: center; }
+.footnote { color: var(--ink-low); font-size: 12px; margin-top: 14px; }
 
 @media (max-width: 720px) {
   .app { grid-template-columns: 64px 1fr; }
-  .main { padding: 18px 14px 40px; }
-  .nav-btn { width: 48px; height: 48px; font-size: 16px; }
+  .main { padding: 22px 16px 60px; }
+  .nav-btn { width: 50px; height: 50px; font-size: 17px; }
+  .hero { padding: 28px 24px; }
+  .hero-row { gap: 22px; }
+  .panel { padding: 20px 16px; }
 }
 </style>
 </head>
@@ -254,10 +337,13 @@ function escHtml(s) {
 
 function fmtUsd(v) {
   if (v == null) return '—';
+  if (v === 0) return '$0';
+  if (v >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
   if (v >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
   if (v >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
   if (v >= 1) return '$' + v.toFixed(2);
-  return '$' + v.toFixed(8).replace(/0+$/, '');
+  if (v < 1e-8) return '<$0.00000001';
+  return '$' + v.toFixed(8).replace(/\.?0+$/, '');
 }
 
 function fmtPct(v) {
@@ -272,6 +358,14 @@ function riskBadge(t) {
   return `<span class="badge ${t.risk_level}">${t.risk_score}/100 ${label}</span>`;
 }
 
+function logo(t, cls = '') {
+  if (t.image_url) {
+    return `<img class="tok-logo ${cls}" loading="lazy" src="${escHtml(t.image_url)}" alt=""
+      onerror="this.outerHTML='<span class=&quot;tok-logo-ph ${cls}&quot;>${escHtml((t.symbol || '?')[0])}</span>'">`;
+  }
+  return `<span class="tok-logo-ph ${cls}">${escHtml((t.symbol || '?')[0])}</span>`;
+}
+
 function flagChips(flags, max = 4) {
   if (!flags || !flags.length) return '<span class="chip">чисто</span>';
   const shown = flags.slice(0, max)
@@ -283,31 +377,40 @@ function flagChips(flags, max = 4) {
 /* ===== Pages ===== */
 
 async function renderOverview() {
-  const [stats, tokens, alerts] = await Promise.all([
-    api('/stats'), api('/tokens'), api('/alerts?limit=5')]);
+  const [stats, tokens, alerts, catalog] = await Promise.all([
+    api('/stats'), api('/tokens'), api('/alerts?limit=5'), api('/catalog?limit=500')]);
+  const totalMcap = catalog.reduce((s, t) => s + (t.market_cap || 0), 0);
+  const gainers = catalog.filter(t => (t.price_change_h24 || 0) > 0).length;
   const worst = tokens.slice(0, 5);
-  content.innerHTML = `
-    <div class="page-title">Обзор</div>
-    <div class="page-sub">Solana P2E Radar — рынок игровых токенов и красные флаги</div>
-    <div class="stat-grid">
-      <div class="stat-card"><div class="stat-label">Игр в каталоге</div>
-        <div class="stat-value">${stats.catalog_total}</div></div>
-      <div class="stat-card"><div class="stat-label">В вотчлисте</div>
-        <div class="stat-value">${stats.watched}</div></div>
-      <div class="stat-card"><div class="stat-label">Высокий риск</div>
-        <div class="stat-value accent-red">${stats.watched_high_risk}</div></div>
-      <div class="stat-card"><div class="stat-label">Алертов за 24ч</div>
-        <div class="stat-value">${stats.alerts_24h}</div></div>
+  content.innerHTML = `<div class="page">
+    <div>
+      <div class="page-title">Рынок P2E <span class="accent">на Solana</span></div>
+      <div class="page-sub">Радар игровых токенов: каталог, ликвидность, on-chain безопасность и красные флаги — обновляется автоматически</div>
+    </div>
+    <div class="hero">
+      <div class="hero-label">Суммарная капитализация каталога</div>
+      <div class="hero-value">${fmtUsd(totalMcap)}</div>
+      <div class="hero-caption">${stats.catalog_total} игровых токенов · ${gainers} растут за 24ч</div>
+      <div class="hero-row">
+        <div class="hero-stat"><div class="hs-label">В вотчлисте</div>
+          <div class="hs-value">${stats.watched}</div></div>
+        <div class="hero-stat"><div class="hs-label">Высокий риск</div>
+          <div class="hs-value red">${stats.watched_high_risk}</div></div>
+        <div class="hero-stat"><div class="hs-label">Алертов за 24ч</div>
+          <div class="hs-value">${stats.alerts_24h}</div></div>
+      </div>
     </div>
     <div class="panel">
       <h3>Самые рискованные в вотчлисте</h3>
       ${worst.length ? tokenTable(worst) : '<div class="empty">Вотчлист пуст — добавь токены через бота: /watch &lt;mint&gt;</div>'}
+      <div id="detail"></div>
     </div>
     <div class="panel">
       <h3>Последние алерты</h3>
       ${alerts.length ? alerts.map(alertItem).join('') : '<div class="empty">Алертов пока не было</div>'}
-    </div>`;
-  bindRows(worst);
+    </div>
+  </div>`;
+  bindRows();
 }
 
 function tokenTable(tokens) {
@@ -316,8 +419,9 @@ function tokenTable(tokens) {
       <th>Объём 24ч</th><th>MCap</th><th>Риск</th><th>Флаги</th></tr></thead>
     <tbody>${tokens.map(t => `
       <tr class="rowlink" data-mint="${escHtml(t.mint)}">
-        <td><span class="sym">${escHtml(t.symbol || '?')}</span><br>
-            <span class="tname">${escHtml(t.name || '')}</span></td>
+        <td><div class="cell-tok">${logo(t)}<div>
+          <div class="sym">${escHtml(t.symbol || '?')}</div>
+          <div class="tname">${escHtml(t.name || '')}</div></div></div></td>
         <td class="num">${fmtUsd(t.price_usd)}</td>
         <td class="num">${fmtPct(t.price_change_h24)}</td>
         <td class="num">${fmtUsd(t.liquidity_usd)}</td>
@@ -328,32 +432,40 @@ function tokenTable(tokens) {
       </tr>`).join('')}</tbody></table></div>`;
 }
 
+function tokenCard(t) {
+  return `<div class="tok-card rowlink" data-mint="${escHtml(t.mint)}">
+    <div class="tok-head">${logo(t)}<div>
+      <div class="tok-sym">${escHtml(t.symbol || '?')}</div>
+      <div class="tok-name">${escHtml(t.name || '')}</div></div></div>
+    <div class="tok-metrics">
+      <div class="tok-mcap"><small>Market cap</small>${fmtUsd(t.market_cap)}</div>
+      <div class="num" style="font-size:15px">${fmtPct(t.price_change_h24)}</div>
+    </div>
+    <div class="tok-foot">
+      ${riskBadge(t)}
+      <span class="chip">${escHtml((t.categories || [])[0] || 'p2e')}</span>
+    </div>
+  </div>`;
+}
+
 async function renderCatalog() {
-  const rows = await api('/catalog?limit=200');
-  content.innerHTML = `
-    <div class="page-title">Игры</div>
-    <div class="page-sub">Каталог P2E/gaming токенов на Solana (CoinGecko) — ${rows.length} шт.</div>
+  const rows = await api('/catalog?limit=500');
+  content.innerHTML = `<div class="page">
+    <div>
+      <div class="page-title">Игры <span class="accent">каталог</span></div>
+      <div class="page-sub">${rows.length} P2E/gaming токенов на Solana из CoinGecko. Клик по карточке — детальный разбор рисков (топ-20 и вотчлист проверяются полностью).</div>
+    </div>
     <div class="panel">
       <div class="search-row"><input id="catSearch" placeholder="Поиск по названию или тикеру…"></div>
-      <div id="catTable"></div>
-    </div>`;
+      <div id="catGrid"></div>
+      <div id="detail"></div>
+    </div>
+  </div>`;
   const draw = (list) => {
-    $('#catTable').innerHTML = list.length ? `<div class="tbl-wrap"><table>
-      <thead><tr><th>#</th><th>Токен</th><th>Категории</th><th>Цена</th>
-        <th>24ч</th><th>MCap</th><th>Mint</th></tr></thead>
-      <tbody>${list.map((t, i) => `
-        <tr class="rowlink" data-mint="${escHtml(t.mint)}">
-          <td class="num">${i + 1}</td>
-          <td><span class="sym">${escHtml(t.symbol || '?')}</span><br>
-              <span class="tname">${escHtml(t.name || '')}</span></td>
-          <td>${(t.categories || []).map(c => `<span class="chip">${escHtml(c)}</span>`).join('')}</td>
-          <td class="num">${fmtUsd(t.price_usd)}</td>
-          <td class="num">${fmtPct(t.price_change_h24)}</td>
-          <td class="num">${fmtUsd(t.market_cap)}</td>
-          <td><span class="mint" title="${escHtml(t.mint)}">${escHtml(t.mint)}</span></td>
-        </tr>`).join('')}</tbody></table></div>`
+    $('#catGrid').innerHTML = list.length
+      ? `<div class="card-grid">${list.map(tokenCard).join('')}</div>`
       : '<div class="empty">Ничего не найдено</div>';
-    bindRows(list);
+    bindRows();
   };
   draw(rows);
   $('#catSearch').addEventListener('input', (e) => {
@@ -366,14 +478,17 @@ async function renderCatalog() {
 
 async function renderWatchlist() {
   const tokens = await api('/tokens');
-  content.innerHTML = `
-    <div class="page-title">Вотчлист</div>
-    <div class="page-sub">Токены под мониторингом (управление через бота: /watch, /unwatch)</div>
+  content.innerHTML = `<div class="page">
+    <div>
+      <div class="page-title">Вотчлист <span class="accent">賭</span></div>
+      <div class="page-sub">Токены под мониторингом. Управление — через бота: /watch и /unwatch.</div>
+    </div>
     <div class="panel">
       ${tokens.length ? tokenTable(tokens) : '<div class="empty">Пусто. Добавь токен в боте: /watch &lt;mint&gt;</div>'}
       <div id="detail"></div>
-    </div>`;
-  bindRows(tokens);
+    </div>
+  </div>`;
+  bindRows();
 }
 
 async function showDetail(mint) {
@@ -385,7 +500,7 @@ async function showDetail(mint) {
     const s = d.security;
     const yn = (v, yes, no) => v == null ? '—' : (v ? yes : no);
     host.innerHTML = `<div class="detail">
-      <h4>${escHtml(d.symbol || '?')} ${escHtml(d.name || '')} ${riskBadge(d)}</h4>
+      <h4>${logo(d)} ${escHtml(d.symbol || '?')} ${escHtml(d.name || '')} ${riskBadge(d)}</h4>
       <div style="font-family:var(--mono);font-size:12px;color:var(--ink-low)">${escHtml(d.mint)}</div>
       <div class="kv">
         <div>Цена<b>${fmtUsd(d.price_usd)}</b></div>
@@ -415,8 +530,8 @@ async function showDetail(mint) {
 }
 
 function bindRows() {
-  content.querySelectorAll('tr.rowlink').forEach(tr =>
-    tr.addEventListener('click', () => showDetail(tr.dataset.mint)));
+  content.querySelectorAll('.rowlink').forEach(el =>
+    el.addEventListener('click', () => showDetail(el.dataset.mint)));
 }
 
 function alertItem(a) {
@@ -429,12 +544,16 @@ function alertItem(a) {
 
 async function renderAlerts() {
   const alerts = await api('/alerts?limit=100');
-  content.innerHTML = `
-    <div class="page-title">Алерты</div>
-    <div class="page-sub">История отправленных уведомлений</div>
+  content.innerHTML = `<div class="page">
+    <div>
+      <div class="page-title">Алерты <span class="accent">警</span></div>
+      <div class="page-sub">История уведомлений: падения ликвидности и цены, новые красные флаги, новые игры в каталоге.</div>
+    </div>
     <div class="panel">
       ${alerts.length ? alerts.map(alertItem).join('') : '<div class="empty">Алертов пока не было</div>'}
-    </div>`;
+      ${IS_STATIC ? '<div class="footnote">Алерты приходят в Telegram через локального бота — на статическом сайте история недоступна.</div>' : ''}
+    </div>
+  </div>`;
 }
 
 const pages = {

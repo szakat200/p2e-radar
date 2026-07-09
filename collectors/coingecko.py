@@ -111,6 +111,7 @@ async def run_catalog_sync(db: AsyncSession) -> list[Token]:
                     name=coin.get("name"),
                     source="catalog",
                     coingecko_id=cid,
+                    image_url=coin.get("image"),
                     categories=[category],
                     market_cap=coin.get("market_cap"),
                     price_usd=coin.get("current_price"),
