@@ -34,48 +34,30 @@ def _dt_iso(v) -> str | None:
 
 
 async def fetch_catalog(http: aiohttp.ClientSession) -> list[dict]:
-    """Каталог P2E×Solana из CoinGecko (без БД)."""
-    mints = await coingecko._solana_mints(http)
-    if not mints:
-        raise RuntimeError("CoinGecko platform mapping failed")
-
-    rows: dict[str, dict] = {}
-    for category in coingecko.CATEGORIES:
-        await asyncio.sleep(coingecko._REQUEST_DELAY)
-        coins = await coingecko._get(http, "/api/v3/coins/markets", {
-            "vs_currency": "usd", "category": category,
-            "order": "market_cap_desc", "per_page": "250", "page": "1",
-        })
-        if not isinstance(coins, list):
-            continue
-        for coin in coins:
-            mint = mints.get(coin["id"])
-            if not mint:
-                continue
-            if mint in rows:
-                if category not in rows[mint]["categories"]:
-                    rows[mint]["categories"].append(category)
-                continue
-            rows[mint] = {
-                "mint": mint,
-                "symbol": (coin.get("symbol") or "").upper() or None,
-                "name": coin.get("name"),
-                "source": "catalog",
-                "coingecko_id": coin["id"],
-                "image_url": coin.get("image"),
-                "categories": [category],
-                "watched": False,
-                "price_usd": coin.get("current_price"),
-                "liquidity_usd": None,
-                "volume_h24": coin.get("total_volume"),
-                "market_cap": coin.get("market_cap"),
-                "price_change_h24": coin.get("price_change_percentage_24h"),
-                "pair_created_at": None, "dex_id": None,
-                "risk_score": None, "risk_level": None, "risk_flags": [],
-                "metrics_updated_at": datetime.now(timezone.utc).isoformat(),
-                "first_seen_at": None,
-            }
-    return sorted(rows.values(), key=lambda r: r["market_cap"] or 0, reverse=True)
+    """Каталог P2E×Solana из CoinGecko (без БД) — через общий фильтр коллектора."""
+    coins = await coingecko.fetch_catalog_coins(http)
+    if not coins:
+        raise RuntimeError("CoinGecko catalog fetch failed")
+    rows = [{
+        "mint": c["mint"],
+        "symbol": c["symbol"],
+        "name": c["name"],
+        "source": "catalog",
+        "coingecko_id": c["id"],
+        "image_url": c["image"],
+        "categories": c["categories"],
+        "watched": False,
+        "price_usd": c["current_price"],
+        "liquidity_usd": None,
+        "volume_h24": c["total_volume"],
+        "market_cap": c["market_cap"],
+        "price_change_h24": c["price_change_percentage_24h"],
+        "pair_created_at": None, "dex_id": None,
+        "risk_score": None, "risk_level": None, "risk_flags": [],
+        "metrics_updated_at": datetime.now(timezone.utc).isoformat(),
+        "first_seen_at": None,
+    } for c in coins]
+    return sorted(rows, key=lambda r: r["market_cap"] or 0, reverse=True)
 
 
 async def full_check(http: aiohttp.ClientSession, row: dict) -> dict:

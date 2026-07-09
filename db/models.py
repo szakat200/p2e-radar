@@ -58,6 +58,7 @@ class Token(Base):
     risk_updated_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime)  # последнее появление в каталоге
 
 
 class TokenSnapshot(Base):
