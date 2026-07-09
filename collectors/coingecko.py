@@ -203,6 +203,12 @@ async def run_catalog_sync(db: AsyncSession) -> list[Token]:
                 token.last_seen_at = now
                 if not token.image_url:
                     token.image_url = coin["image"]
+                # CG — источник цены/капы для каталожных токенов (см. dexscreener.py)
+                token.price_usd = coin["current_price"]
+                token.market_cap = coin["market_cap"]
+                token.volume_h24 = coin["total_volume"]
+                token.price_change_h24 = coin["price_change_percentage_24h"]
+                token.metrics_updated_at = now
             continue
         token = Token(
             mint=mint,

@@ -435,15 +435,15 @@ function tokenTable(tokens) {
 function tokenCard(t) {
   return `<div class="tok-card rowlink" data-mint="${escHtml(t.mint)}">
     <div class="tok-head">${logo(t)}<div>
-      <div class="tok-sym">${escHtml(t.symbol || '?')}</div>
-      <div class="tok-name">${escHtml(t.name || '')}</div></div></div>
+      <div class="tok-sym">${escHtml(t.name || t.symbol || '?')}</div>
+      <div class="tok-name">$${escHtml(t.symbol || '?')} · ${escHtml((t.categories || [])[0] || 'p2e')}</div></div></div>
     <div class="tok-metrics">
       <div class="tok-mcap"><small>Market cap</small>${fmtUsd(t.market_cap)}</div>
       <div class="num" style="font-size:15px">${fmtPct(t.price_change_h24)}</div>
     </div>
     <div class="tok-foot">
       ${riskBadge(t)}
-      <span class="chip">${escHtml((t.categories || [])[0] || 'p2e')}</span>
+      <span class="chip" title="Ликвидность на Solana DEX">liq ${fmtUsd(t.liquidity_usd)}</span>
     </div>
   </div>`;
 }

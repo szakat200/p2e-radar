@@ -34,7 +34,12 @@ async def _get(http: aiohttp.ClientSession, path: str) -> dict | None:
 
 
 def _best_pair(data: dict | None, mint: str) -> dict | None:
-    """Пара этого mint с максимальной ликвидностью на Solana."""
+    """Пара этого mint с максимальной ликвидностью на Solana.
+
+    Мусорные пулы с неверной ценой раздувают liquidity.usd в тысячи раз
+    (наблюдалось: GALA-пул с ценой $10.42 при реальной $0.0021 → «$190M
+    ликвидности»). Пулы, чья цена отклоняется от медианы >3×, отбрасываются.
+    """
     if not data:
         return None
     pairs = [
@@ -44,6 +49,17 @@ def _best_pair(data: dict | None, mint: str) -> dict | None:
     ]
     if not pairs:
         return None
+
+    prices = sorted(float(p["priceUsd"]) for p in pairs if p.get("priceUsd"))
+    if prices:
+        median = prices[len(prices) // 2]
+        sane = [
+            p for p in pairs
+            if not p.get("priceUsd")
+            or (median / 3 <= float(p["priceUsd"]) <= median * 3)
+        ]
+        if sane:
+            pairs = sane
     return max(pairs, key=lambda p: (p.get("liquidity") or {}).get("usd") or 0)
 
 
@@ -76,26 +92,34 @@ async def get_market(http: aiohttp.ClientSession, mint: str) -> dict | None:
 
 
 def apply_market_to_token(token: Token, market: dict | None) -> None:
-    """Обновить денормализованные поля токена (наивный UTC, как в БД)."""
+    """Обновить денормализованные поля токена (наивный UTC, как в БД).
+
+    У каталожных токенов (есть coingecko_id) цена/капа/объём/изменение приходят
+    из CoinGecko при синке каталога — тонкие солановые пулы DexScreener дают
+    мусорные значения. DexScreener пишет только Solana-специфику.
+    """
     now = datetime.utcnow()
+    is_cg = bool(token.coingecko_id)
     if market:
-        token.price_usd = market["price_usd"]
         token.liquidity_usd = market["liquidity_usd"]
-        token.volume_h24 = market["volume_h24"]
-        token.market_cap = market["market_cap"]
-        token.price_change_h24 = market["price_change_h24"]
         pca = market["pair_created_at"]
         token.pair_created_at = pca.replace(tzinfo=None) if pca else None
         token.dex_id = market["dex_id"]
         token.pair_address = market["pair_address"]
+        if not is_cg:
+            token.price_usd = market["price_usd"]
+            token.volume_h24 = market["volume_h24"]
+            token.market_cap = market["market_cap"]
+            token.price_change_h24 = market["price_change_h24"]
         if not token.symbol and market["symbol"]:
             token.symbol = market["symbol"]
         if not token.name and market["name"]:
             token.name = market["name"]
     else:
-        token.price_usd = None
         token.liquidity_usd = None
-        token.volume_h24 = None
+        if not is_cg:
+            token.price_usd = None
+            token.volume_h24 = None
     token.metrics_updated_at = now
 
 

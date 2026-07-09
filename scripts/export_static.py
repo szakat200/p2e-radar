@@ -98,18 +98,36 @@ async def full_check(http: aiohttp.ClientSession, row: dict) -> dict:
     mint = row["mint"]
     market = await get_market(http, mint)
     security = await get_security(http, mint)
-    report = evaluate(market, security, mint)
 
+    # Для каталожных токенов риск считается от честных агрегатных данных CG
+    # + солановой ликвидности DexScreener (мусорные цены пулов не подмешиваем)
+    eval_market = market
+    if market and row.get("coingecko_id"):
+        eval_market = {
+            **market,
+            "market_cap": row.get("market_cap"),
+            "volume_h24": row.get("volume_h24"),
+            "price_change_h24": row.get("price_change_h24"),
+        }
+    report = evaluate(eval_market, security, mint)
+
+    is_cg = bool(row.get("coingecko_id"))
     if market:
+        # У каталожных токенов цена/капа/изменение — из CoinGecko (агрегат бирж):
+        # тонкие солановые пулы дают мусор ($516B fdv, +513779%). DexScreener
+        # здесь источник только Solana-специфики: ликвидность, DEX, возраст пары.
         row.update({
-            "price_usd": market["price_usd"],
             "liquidity_usd": market["liquidity_usd"],
-            "volume_h24": market["volume_h24"],
-            "market_cap": market["market_cap"] or row.get("market_cap"),
-            "price_change_h24": market["price_change_h24"],
             "pair_created_at": _dt_iso(market["pair_created_at"]),
             "dex_id": market["dex_id"],
         })
+        if not is_cg:
+            row.update({
+                "price_usd": market["price_usd"],
+                "volume_h24": market["volume_h24"],
+                "market_cap": market["market_cap"],
+                "price_change_h24": market["price_change_h24"],
+            })
         row["symbol"] = row.get("symbol") or market["symbol"]
         row["name"] = row.get("name") or market["name"]
     row["risk_score"] = report.score
