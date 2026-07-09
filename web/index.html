@@ -266,6 +266,17 @@ tr.rowlink:hover { background: var(--bg-elev); }
 .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 18px 0; }
 .kv div { font-size: 12.5px; color: var(--ink-mid); }
 .kv b { color: var(--ink-hi); font-family: var(--mono); font-weight: 600; display: block; font-size: 15px; margin-top: 2px; }
+.game-desc { color: var(--ink-mid); font-size: 13.5px; line-height: 1.6; margin: 14px 0 4px; max-width: 720px; }
+.link-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 4px; }
+.link-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 16px; border-radius: 99px; text-decoration: none;
+  font-size: 13px; font-weight: 600;
+  background: var(--bg-elev); border: 1px solid var(--line); color: var(--ink);
+  transition: all var(--t);
+}
+.link-btn:hover { border-color: var(--shu); color: var(--ink-hi); transform: translateY(-1px); }
+.link-btn.primary { background: var(--shu-soft); border-color: rgba(230,57,70,0.35); color: var(--shu); }
 
 /* ===== Alerts ===== */
 .alert-item {
@@ -499,12 +510,33 @@ async function showDetail(mint) {
     const d = await api('/tokens/' + mint);
     const s = d.security;
     const yn = (v, yes, no) => v == null ? '—' : (v ? yes : no);
+    // Название игры без дубля тикера ("GALA GALA" -> "GALA")
+    const title = (d.name && d.name.toLowerCase() !== (d.symbol || '').toLowerCase())
+      ? `${escHtml(d.name)} <span style="color:var(--ink-low);font-size:14px">$${escHtml(d.symbol || '?')}</span>`
+      : escHtml(d.name || d.symbol || '?');
+    const L = d.links || {};
+    const linkBtns = [
+      L.homepage && `<a class="link-btn primary" href="${escHtml(L.homepage)}" target="_blank" rel="noopener">🎮 Сайт игры</a>`,
+      L.twitter && `<a class="link-btn" href="${escHtml(L.twitter)}" target="_blank" rel="noopener">𝕏 Twitter</a>`,
+      L.telegram && `<a class="link-btn" href="${escHtml(L.telegram)}" target="_blank" rel="noopener">✈️ Telegram</a>`,
+      L.discord && `<a class="link-btn" href="${escHtml(L.discord)}" target="_blank" rel="noopener">💬 Discord</a>`,
+      `<a class="link-btn" href="https://solscan.io/token/${escHtml(d.mint)}" target="_blank" rel="noopener">⛓ Solscan</a>`,
+    ].filter(Boolean).join('');
+    const flagsBlock = d.risk_score == null
+      ? '<div class="flag-row" style="color:var(--ink-low)">Токен ещё не проходил полную проверку рисков (она есть у вотчлиста и топ-20 каталога). Быстрая проверка: /check в боте.</div>'
+      : (d.risk_flags && d.risk_flags.length) ? d.risk_flags.map(f => `
+        <div class="flag-row"><span class="chip ${escHtml(f.severity)}">${escHtml(f.severity)}</span>
+          <span class="flag-title">${escHtml(f.title)}</span> —
+          <span class="flag-detail">${escHtml(f.detail)}</span></div>`).join('')
+      : '<div class="flag-row">✅ Красных флагов нет</div>';
     host.innerHTML = `<div class="detail">
-      <h4>${logo(d)} ${escHtml(d.symbol || '?')} ${escHtml(d.name || '')} ${riskBadge(d)}</h4>
+      <h4>${logo(d)} ${title} ${riskBadge(d)}</h4>
       <div style="font-family:var(--mono);font-size:12px;color:var(--ink-low)">${escHtml(d.mint)}</div>
+      ${d.description ? `<div class="game-desc">${escHtml(d.description)}</div>` : ''}
+      <div class="link-row">${linkBtns}</div>
       <div class="kv">
         <div>Цена<b>${fmtUsd(d.price_usd)}</b></div>
-        <div>Ликвидность<b>${fmtUsd(d.liquidity_usd)}</b></div>
+        <div>Ликвидность на Solana<b>${fmtUsd(d.liquidity_usd)}</b></div>
         <div>Объём 24ч<b>${fmtUsd(d.volume_h24)}</b></div>
         <div>Market cap<b>${fmtUsd(d.market_cap)}</b></div>
         <div>DEX<b>${escHtml(d.dex_id || '—')}</b></div>
@@ -515,11 +547,7 @@ async function showDetail(mint) {
         <div>LP locked<b>${s.lp_locked_pct != null ? s.lp_locked_pct.toFixed(0) + '%' : '—'}</b></div>
         <div>Холдеров<b>${s.holders_count ?? '—'}</b></div>` : ''}
       </div>
-      ${(d.risk_flags && d.risk_flags.length) ? d.risk_flags.map(f => `
-        <div class="flag-row"><span class="chip ${escHtml(f.severity)}">${escHtml(f.severity)}</span>
-          <span class="flag-title">${escHtml(f.title)}</span> —
-          <span class="flag-detail">${escHtml(f.detail)}</span></div>`).join('')
-      : '<div class="flag-row">✅ Красных флагов нет</div>'}
+      ${flagsBlock}
     </div>`;
     host.scrollIntoView({behavior: 'smooth', block: 'nearest'});
   } catch (e) {

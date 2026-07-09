@@ -174,6 +174,37 @@ async def fetch_catalog_coins(http: aiohttp.ClientSession) -> list[dict] | None:
     return list(rows.values())
 
 
+DETAILS_PER_SYNC = 10  # обогащений (сайт/соцсети/описание) за один прогон
+
+
+async def fetch_coin_details(http: aiohttp.ClientSession, cid: str) -> dict | None:
+    """Ссылки на игру и описание из /coins/{id}. None = не скачалось."""
+    data = await _get(http, f"/api/v3/coins/{cid}", {
+        "localization": "true", "tickers": "false", "market_data": "false",
+        "community_data": "false", "developer_data": "false", "sparkline": "false",
+    })
+    if not isinstance(data, dict):
+        return None
+    links = data.get("links") or {}
+    desc = data.get("description") or {}
+    text = (desc.get("ru") or desc.get("en") or "").strip()
+    if len(text) > 600:
+        text = text[:600].rsplit(" ", 1)[0] + "…"
+    homepage = next((u for u in (links.get("homepage") or []) if u), None)
+    chat_urls = [u for u in (links.get("chat_url") or []) if u]
+    twitter = links.get("twitter_screen_name")
+    return {
+        "description": text or None,
+        "links": {
+            "homepage": homepage,
+            "twitter": f"https://x.com/{twitter}" if twitter else None,
+            "telegram": (f"https://t.me/{links['telegram_channel_identifier']}"
+                         if links.get("telegram_channel_identifier") else None),
+            "discord": next((u for u in chat_urls if "discord" in u), None),
+        },
+    }
+
+
 async def run_catalog_sync(db: AsyncSession) -> list[Token]:
     """Синк каталога. Возвращает список НОВЫХ токенов (для алертов).
 
@@ -228,6 +259,22 @@ async def run_catalog_sync(db: AsyncSession) -> list[Token]:
         db.add(token)
         existing_mints.add(mint)
         new_tokens.append(token)
+
+    # Обогащение ссылками на игру (сайт/соцсети/описание) — порциями,
+    # чтобы не выжигать лимиты; за несколько прогонов покрывается весь каталог
+    need_details = await db.execute(
+        select(Token).where(
+            Token.source == "catalog",
+            Token.coingecko_id.isnot(None),
+            Token.links.is_(None),
+        ).limit(DETAILS_PER_SYNC))
+    async with aiohttp.ClientSession() as http:
+        for token in need_details.scalars().all():
+            await asyncio.sleep(_REQUEST_DELAY)
+            details = await fetch_coin_details(http, token.coingecko_id)
+            if details:
+                token.links = details["links"]
+                token.description = details["description"]
 
     # Зачистка только «долго не виденных»: категорийная выдача CoinGecko дырявая,
     # разовый пропуск токена — не повод его удалять

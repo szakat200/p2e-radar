@@ -34,6 +34,7 @@ def _token_dict(t: Token) -> dict:
         "source": t.source, "coingecko_id": t.coingecko_id,
         "image_url": t.image_url,
         "categories": t.categories or [], "watched": t.watched,
+        "links": t.links, "description": t.description,
         "price_usd": t.price_usd, "liquidity_usd": t.liquidity_usd,
         "volume_h24": t.volume_h24, "market_cap": t.market_cap,
         "price_change_h24": t.price_change_h24,

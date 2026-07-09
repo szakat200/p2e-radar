@@ -83,14 +83,37 @@ async def fetch_catalog(http: aiohttp.ClientSession) -> list[dict]:
         "price_change_h24": c["price_change_percentage_24h"],
         "pair_created_at": None, "dex_id": None,
         "risk_score": None, "risk_level": None, "risk_flags": [],
+        "links": None, "description": None,
         "metrics_updated_at": datetime.now(timezone.utc).isoformat(),
         "first_seen_at": None,
     } for c in coins]
 
-    # Union с прошлым каталогом сайта: свежие данные приоритетнее
-    by_mint = {r["mint"]: r for r in await _prev_catalog(http)}
+    # Union с прошлым каталогом сайта: свежие данные приоритетнее,
+    # но links/description переносятся (обогащаются порциями, см. ниже)
+    prev = {r["mint"]: r for r in await _prev_catalog(http)}
+    for row in rows:
+        old = prev.get(row["mint"])
+        if old:
+            row["links"] = old.get("links")
+            row["description"] = old.get("description")
+    by_mint = dict(prev)
     by_mint.update({r["mint"]: r for r in rows})
-    return sorted(by_mint.values(), key=lambda r: r["market_cap"] or 0, reverse=True)
+    merged = sorted(by_mint.values(), key=lambda r: r["market_cap"] or 0, reverse=True)
+
+    # Обогащение ссылками на игру — порциями по бюджету запросов
+    enriched = 0
+    for row in merged:
+        if enriched >= coingecko.DETAILS_PER_SYNC:
+            break
+        if row.get("links") or not row.get("coingecko_id"):
+            continue
+        await asyncio.sleep(coingecko._REQUEST_DELAY)
+        details = await coingecko.fetch_coin_details(http, row["coingecko_id"])
+        if details:
+            row["links"] = details["links"]
+            row["description"] = details["description"]
+            enriched += 1
+    return merged
 
 
 async def full_check(http: aiohttp.ClientSession, row: dict) -> dict:

@@ -36,6 +36,7 @@ class Token(Base):
     image_url: Mapped[str | None] = mapped_column(String(256))
     categories: Mapped[list | None] = mapped_column(JSON)  # ["play-to-earn", "gaming"]
     description: Mapped[str | None] = mapped_column(Text)
+    links: Mapped[dict | None] = mapped_column(JSON)  # {homepage, twitter, telegram, discord}
 
     watched: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     added_by: Mapped[int | None] = mapped_column(BigInteger)
