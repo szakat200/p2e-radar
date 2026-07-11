@@ -89,8 +89,10 @@ async def fetch_catalog(http: aiohttp.ClientSession) -> list[dict]:
     } for c in coins]
 
     # Union с прошлым каталогом сайта: свежие данные приоритетнее,
-    # но links/description переносятся (обогащаются порциями, см. ниже)
-    prev = {r["mint"]: r for r in await _prev_catalog(http)}
+    # но links/description переносятся (обогащаются порциями, см. ниже).
+    # Чёрный список фильтруется и здесь — иначе прошлый catalog.json воскресит токен.
+    prev = {r["mint"]: r for r in await _prev_catalog(http)
+            if r["mint"] not in coingecko.BLACKLIST_MINTS}
     for row in rows:
         old = prev.get(row["mint"])
         if old:

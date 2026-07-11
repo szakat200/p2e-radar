@@ -27,6 +27,12 @@ CATEGORIES = ["play-to-earn", "gaming", "on-chain-gaming",
 # Токен, состоящий в любой из этих категорий, из каталога исключается.
 EXCLUDE_CATEGORIES = ["meme-token", "solana-meme-coins", "depin"]
 
+# Ручной чёрный список: mint сюда — и токен никогда не попадёт в каталог
+# (и будет удалён из него при следующем синке, если не стоит в вотчлисте)
+BLACKLIST_MINTS = {
+    "PLAYs3GSSadH2q2JLS7djp7yzeT75NK78XgrE5YLrfq",  # Play Solana: -95% после TGE, объём $700/день
+}
+
 # Категорийная выдача keyless CoinGecko нестабильна (утром 100+ монет, вечером 33),
 # а /coins/list временами приходит урезанным. Известные игры на Solana подтягиваются
 # по id всегда, с захардкоженными mint (SPL-mint неизменен по определению).
@@ -131,7 +137,7 @@ async def fetch_catalog_coins(http: aiohttp.ClientSession) -> list[dict] | None:
     def _add(coin: dict, category: str) -> None:
         cid = coin["id"]
         mint = mints.get(cid) or SEED_MINTS.get(cid)
-        if not mint or cid in excluded:
+        if not mint or cid in excluded or mint in BLACKLIST_MINTS:
             return
         if cid in rows:
             if category not in rows[cid]["categories"]:
@@ -276,15 +282,15 @@ async def run_catalog_sync(db: AsyncSession) -> list[Token]:
                 token.links = details["links"]
                 token.description = details["description"]
 
-    # Зачистка только «долго не виденных»: категорийная выдача CoinGecko дырявая,
-    # разовый пропуск токена — не повод его удалять
+    # Зачистка: «долго не виденные» (категорийная выдача CoinGecko дырявая,
+    # разовый пропуск — не повод удалять) + чёрный список
     week_ago = now - timedelta(days=7)
     stale = await db.execute(
         select(Token).where(
             Token.source == "catalog",
             Token.watched.is_(False),
-            Token.last_seen_at.isnot(None),
-            Token.last_seen_at < week_ago,
+            ((Token.last_seen_at.isnot(None)) & (Token.last_seen_at < week_ago))
+            | Token.mint.in_(BLACKLIST_MINTS),
         ))
     removed = 0
     for token in stale.scalars().all():
