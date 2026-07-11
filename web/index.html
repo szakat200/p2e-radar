@@ -517,14 +517,18 @@ function tokenCard(t) {
 }
 
 async function renderCatalog() {
-  const rows = await api('/catalog?limit=500');
+  const [rows, watched] = await Promise.all([
+    api('/catalog?limit=500'), api('/tokens')]);
+  // Вотчлист участвует в поиске (напр. RELIC — ручной токен, не из каталога)
+  const catalogMints = new Set(rows.map(t => t.mint));
+  const extra = watched.filter(t => !catalogMints.has(t.mint));
   content.innerHTML = `<div class="page">
     <div>
       <div class="page-title">Игры <span class="accent">каталог</span></div>
       <div class="page-sub">${rows.length} P2E/gaming токенов на Solana из CoinGecko. Клик по карточке — детальный разбор рисков (топ-20 и вотчлист проверяются полностью).</div>
     </div>
     <div class="panel">
-      <div class="search-row"><input id="catSearch" placeholder="Поиск по названию или тикеру…"></div>
+      <div class="search-row"><input id="catSearch" placeholder="Поиск по названию, тикеру или mint…"></div>
       <div id="catGrid"></div>
       <div id="detail"></div>
     </div>
@@ -532,15 +536,17 @@ async function renderCatalog() {
   const draw = (list) => {
     $('#catGrid').innerHTML = list.length
       ? `<div class="card-grid">${list.map(tokenCard).join('')}</div>`
-      : '<div class="empty">Ничего не найдено</div>';
+      : `<div class="empty">Ничего не найдено ни в каталоге, ни в вотчлисте.<br>
+         Любой токен можно проверить по mint-адресу через бота: /check &lt;mint&gt;</div>`;
     bindRows();
   };
   draw(rows);
   $('#catSearch').addEventListener('input', (e) => {
     const q = e.target.value.trim().toLowerCase();
-    draw(!q ? rows : rows.filter(t =>
+    draw(!q ? rows : [...rows, ...extra].filter(t =>
       (t.name || '').toLowerCase().includes(q) ||
-      (t.symbol || '').toLowerCase().includes(q)));
+      (t.symbol || '').toLowerCase().includes(q) ||
+      (t.mint || '').toLowerCase() === q));
   });
 }
 
