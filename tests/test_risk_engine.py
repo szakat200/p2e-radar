@@ -21,7 +21,15 @@ def test_healthy_token_low_risk():
     report = evaluate(market, security, "So11111111111111111111111111111111111111112")
     assert report.level == "low"
     assert report.score < 30
-    assert report.flags == []
+    reds = [f for f in report.flags if f.severity != "good"]
+    greens = {f.code for f in report.flags if f.severity == "good"}
+    assert reds == []
+    # здоровый токен собирает зелёные флаги
+    assert "AUTHORITIES_REVOKED" in greens
+    assert "LP_LOCKED" in greens
+    assert "DISTRIBUTED_SUPPLY" in greens
+    assert "MATURE_PAIR" in greens
+    assert "ACTIVE_MARKET" in greens
 
 
 def test_relic_like_token_high_risk():
@@ -85,3 +93,40 @@ def test_missing_fields_treated_as_unknown():
     codes = report.flag_codes()
     assert "LIQ_CRITICAL" not in codes
     assert "MINT_AUTHORITY" not in codes
+    assert "AUTHORITIES_REVOKED" not in codes  # None != «отозваны»
+
+
+def test_ath_crash_flag():
+    # Профиль PLAY: TGE-дамп, -94.6% от ATH
+    market = {"liquidity_usd": 84_000, "volume_h24": 700,
+              "market_cap": 528_000, "price_change_h24": -8.2,
+              "ath_change_pct": -94.6}
+    report = evaluate(market, {"top10_holder_pct": 95.4, "lp_locked_pct": 0.0}, "PLAYs111")
+    codes = report.flag_codes()
+    assert "ATH_CRASH" in codes
+    assert "TOP10_EXTREME" in codes       # >90% теперь critical
+    assert "TOP10_HEAVY" not in codes     # взаимоисключающие ступени
+    assert report.level == "high"         # 15+12+20+15 = 62
+
+
+def test_market_stale_fake_liquidity():
+    # Объём < 1% ликвидности: рынок мёртв, хоть ликвидность и есть
+    market = {"liquidity_usd": 500_000, "volume_h24": 2_000,
+              "market_cap": 5_000_000, "price_change_h24": 0.0}
+    report = evaluate(market, {"top10_holder_pct": 10.0}, "X")
+    codes = report.flag_codes()
+    assert "MARKET_STALE" in codes
+    assert "ACTIVE_MARKET" not in codes
+
+
+def test_greens_do_not_change_score():
+    market = {"liquidity_usd": 5_000, "volume_h24": 50_000,
+              "market_cap": 1_000_000, "price_change_h24": 0.0}
+    security = {"mint_authority_active": False, "freeze_authority_active": False,
+                "top10_holder_pct": 10.0, "lp_locked_pct": 100.0,
+                "holders_count": 20_000}
+    with_greens = evaluate(market, security, "X")
+    reds_only = sum(1 for f in with_greens.flags if f.severity != "good")
+    assert reds_only < len(with_greens.flags)  # зелёные есть
+    # score считается только по красным: LIQ_CRITICAL(30) + LIQ_MCAP_RATIO(15) = 45
+    assert with_greens.score == 45

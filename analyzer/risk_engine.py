@@ -15,10 +15,19 @@ VOLUME_LOW_USD = 10_000
 PRICE_COLLAPSE_PCT = -40.0
 PRICE_DOWNTREND_PCT = -20.0
 YOUNG_TOKEN_DAYS = 14
+TOP10_EXTREME_PCT = 90.0
 TOP10_HEAVY_PCT = 50.0
 TOP10_NOTABLE_PCT = 30.0
 LP_LOCKED_MIN_PCT = 50.0
 MCAP_MICRO_USD = 100_000
+ATH_CRASH_PCT = -90.0        # паттерн аирдроп-дампа: PIXEL/Hamster/PLAY -90%+ от ATH
+MARKET_STALE_VOL_RATIO = 0.01  # объём < 1% ликвидности = рынок мёртв (PLAY: $700/$84K)
+
+# --- Зелёные пороги ---
+GOOD_HOLDERS_MIN = 5_000
+GOOD_PAIR_AGE_DAYS = 365
+GOOD_LP_LOCKED_PCT = 90.0
+GOOD_VOL_LIQ_RATIO = 0.10
 
 LEVEL_MEDIUM_FROM = 30
 LEVEL_HIGH_FROM = 60
@@ -56,9 +65,11 @@ def _fmt_usd(v: float) -> str:
 
 def evaluate(market: dict | None, security: dict | None, mint: str = "") -> RiskReport:
     """market: {price_usd, liquidity_usd, volume_h24, market_cap, price_change_h24,
-                pair_created_at: datetime|None}
+                pair_created_at: datetime|None, ath_change_pct: float|None}
     security: {mint_authority_active, freeze_authority_active, top10_holder_pct,
-               lp_locked_pct} — поля могут отсутствовать/быть None.
+               lp_locked_pct, holders_count} — поля могут отсутствовать/быть None.
+
+    Зелёные флаги (severity="good") информационные: в score не входят.
     """
     flags: list[Flag] = []
     score = 0
@@ -67,6 +78,9 @@ def evaluate(market: dict | None, security: dict | None, mint: str = "") -> Risk
         nonlocal score
         flags.append(Flag(code, severity, title, detail))
         score += penalty
+
+    def good(code, title, detail):
+        flags.append(Flag(code, "good", title, detail))
 
     # --- Рынок ---
     if not market:
@@ -99,6 +113,14 @@ def evaluate(market: dict | None, security: dict | None, mint: str = "") -> Risk
             elif vol < VOLUME_LOW_USD:
                 add("VOLUME_LOW", "medium", "Слабый объём торгов",
                     f"Объём за 24ч {_fmt_usd(vol)}", 7)
+            if liq and liq > 0 and vol >= VOLUME_DEAD_USD \
+                    and vol / liq < MARKET_STALE_VOL_RATIO:
+                add("MARKET_STALE", "medium", "Застойный рынок",
+                    f"Объём {_fmt_usd(vol)} < 1% ликвидности {_fmt_usd(liq)} — "
+                    "ликвидность есть, но торговли нет", 7)
+            elif liq and liq > 0 and vol / liq >= GOOD_VOL_LIQ_RATIO:
+                good("ACTIVE_MARKET", "Живая торговля",
+                     f"Объём 24ч {_fmt_usd(vol)} при ликвидности {_fmt_usd(liq)}")
 
         if change is not None:
             if change < PRICE_COLLAPSE_PCT:
@@ -116,10 +138,19 @@ def evaluate(market: dict | None, security: dict | None, mint: str = "") -> Risk
             if age_days < YOUNG_TOKEN_DAYS:
                 add("YOUNG_TOKEN", "medium", "Молодой токен",
                     f"Паре всего {age_days} дн. (порог {YOUNG_TOKEN_DAYS})", 10)
+            elif age_days >= GOOD_PAIR_AGE_DAYS:
+                good("MATURE_PAIR", "Зрелая пара",
+                     f"Пара живёт {age_days // 365} г.+ — пережила минимум один цикл")
 
         if mcap is not None and 0 < mcap < MCAP_MICRO_USD:
             add("MCAP_MICRO", "medium", "Микро-капитализация",
                 f"Market cap {_fmt_usd(mcap)} < {_fmt_usd(MCAP_MICRO_USD)}", 8)
+
+        ath_change = market.get("ath_change_pct")
+        if ath_change is not None and ath_change < ATH_CRASH_PCT:
+            add("ATH_CRASH", "high", "Обвал от исторического максимума",
+                f"Цена {ath_change:.0f}% от ATH — типичный профиль "
+                "аирдроп-дампа (PIXEL, PLAY: продавцы всё ещё выше рынка)", 12)
 
     # --- On-chain ---
     if not security:
@@ -132,20 +163,39 @@ def evaluate(market: dict | None, security: dict | None, mint: str = "") -> Risk
         if security.get("freeze_authority_active"):
             add("FREEZE_AUTHORITY", "critical", "Freeze authority активен",
                 "Создатель может заморозить твои токены — продать не сможешь", 20)
+        if security.get("mint_authority_active") is False \
+                and security.get("freeze_authority_active") is False:
+            good("AUTHORITIES_REVOKED", "Authorities отозваны",
+                 "Mint и freeze отозваны — допечатать или заморозить нельзя")
 
         top10 = security.get("top10_holder_pct")
         if top10 is not None:
-            if top10 > TOP10_HEAVY_PCT:
+            if top10 > TOP10_EXTREME_PCT:
+                add("TOP10_EXTREME", "critical", "Экстремальная концентрация",
+                    f"Топ-10 держат {top10:.0f}% supply — рынок полностью "
+                    "в руках нескольких кошельков", 20)
+            elif top10 > TOP10_HEAVY_PCT:
                 add("TOP10_HEAVY", "high", "Концентрация у китов",
                     f"Топ-10 держат {top10:.0f}% supply — один слив обвалит цену", 15)
             elif top10 > TOP10_NOTABLE_PCT:
                 add("TOP10_NOTABLE", "medium", "Заметная концентрация",
                     f"Топ-10 держат {top10:.0f}% supply", 8)
+            else:
+                good("DISTRIBUTED_SUPPLY", "Хорошее распределение",
+                     f"Топ-10 держат лишь {top10:.0f}% supply")
 
         lp = security.get("lp_locked_pct")
         if lp is not None and lp < LP_LOCKED_MIN_PCT:
             add("LP_UNLOCKED", "high", "LP не заблокирован",
                 f"Заблокировано/сожжено {lp:.0f}% LP — возможен rug pull", 15)
+        elif lp is not None and lp >= GOOD_LP_LOCKED_PCT:
+            good("LP_LOCKED", "LP заблокирован",
+                 f"{lp:.0f}% LP залочено/сожжено — rug pull затруднён")
+
+        holders = security.get("holders_count")
+        if holders is not None and holders >= GOOD_HOLDERS_MIN:
+            good("MANY_HOLDERS", "Широкая база холдеров",
+                 f"{holders:,} держателей".replace(",", " "))
 
     # --- Прочее ---
     if mint.lower().endswith("pump"):

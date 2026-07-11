@@ -44,6 +44,7 @@ class Config:
     # Пороги алертов
     ALERT_LIQ_DROP_PCT: float = float(os.getenv("ALERT_LIQ_DROP_PCT", "0.30"))
     ALERT_PRICE_DROP_PCT: float = float(os.getenv("ALERT_PRICE_DROP_PCT", "0.40"))
+    ALERT_PRICE_PUMP_PCT: float = float(os.getenv("ALERT_PRICE_PUMP_PCT", "0.40"))
 
     DEBUG: bool = os.getenv("DEBUG", "False").lower() in ("1", "true", "yes")
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

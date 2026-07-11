@@ -47,6 +47,7 @@ class Token(Base):
     volume_h24: Mapped[float | None] = mapped_column(Float)
     market_cap: Mapped[float | None] = mapped_column(Float)
     price_change_h24: Mapped[float | None] = mapped_column(Float)
+    ath_change_pct: Mapped[float | None] = mapped_column(Float)  # % от ATH (CoinGecko)
     pair_created_at: Mapped[datetime | None] = mapped_column(DateTime)
     dex_id: Mapped[str | None] = mapped_column(String(32))
     pair_address: Mapped[str | None] = mapped_column(String(64))

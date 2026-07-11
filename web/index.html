@@ -282,6 +282,7 @@ tr.rowlink:hover { background: var(--v-soft); }
 .chip.high     { color: #fb923c; border-color: rgba(251,146,60,0.35); background: rgba(251,146,60,0.1); }
 .chip.medium   { color: var(--warn); border-color: rgba(251,191,36,0.3); background: var(--warn-soft); }
 .chip.info     { color: var(--neon-c); border-color: rgba(34,211,238,0.3); background: var(--c-soft); }
+.chip.good     { color: var(--ok); border-color: rgba(52,211,153,0.3); background: var(--ok-soft); }
 
 /* ===== Search ===== */
 .search-row { margin-bottom: 22px; }
@@ -435,10 +436,11 @@ function logo(t, cls = '') {
 }
 
 function flagChips(flags, max = 4) {
-  if (!flags || !flags.length) return '<span class="chip">чисто</span>';
-  const shown = flags.slice(0, max)
+  const reds = (flags || []).filter(f => f.severity !== 'good');
+  if (!reds.length) return '<span class="chip good">чисто</span>';
+  const shown = reds.slice(0, max)
     .map(f => `<span class="chip ${escHtml(f.severity)}" title="${escHtml(f.detail)}">${escHtml(f.title)}</span>`);
-  if (flags.length > max) shown.push(`<span class="chip">+${flags.length - max}</span>`);
+  if (reds.length > max) shown.push(`<span class="chip">+${reds.length - max}</span>`);
   return shown.join('');
 }
 
@@ -585,13 +587,16 @@ async function showDetail(mint) {
       L.discord && `<a class="link-btn" href="${escHtml(L.discord)}" target="_blank" rel="noopener">💬 Discord</a>`,
       `<a class="link-btn" href="https://solscan.io/token/${escHtml(d.mint)}" target="_blank" rel="noopener">⛓ Solscan</a>`,
     ].filter(Boolean).join('');
+    const flagRow = f => `
+        <div class="flag-row"><span class="chip ${escHtml(f.severity)}">${f.severity === 'good' ? '✅' : escHtml(f.severity)}</span>
+          <span class="flag-title">${escHtml(f.title)}</span> —
+          <span class="flag-detail">${escHtml(f.detail)}</span></div>`;
+    const reds = (d.risk_flags || []).filter(f => f.severity !== 'good');
+    const greens = (d.risk_flags || []).filter(f => f.severity === 'good');
     const flagsBlock = d.risk_score == null
       ? '<div class="flag-row" style="color:var(--ink-low)">Токен ещё не проходил полную проверку рисков (она есть у вотчлиста и топ-20 каталога). Быстрая проверка: /check в боте.</div>'
-      : (d.risk_flags && d.risk_flags.length) ? d.risk_flags.map(f => `
-        <div class="flag-row"><span class="chip ${escHtml(f.severity)}">${escHtml(f.severity)}</span>
-          <span class="flag-title">${escHtml(f.title)}</span> —
-          <span class="flag-detail">${escHtml(f.detail)}</span></div>`).join('')
-      : '<div class="flag-row">✅ Красных флагов нет</div>';
+      : (reds.length ? reds.map(flagRow).join('') : '<div class="flag-row">✅ Красных флагов нет</div>')
+        + greens.map(flagRow).join('');
     host.innerHTML = `<div class="detail">
       <h4>${logo(d)} ${title} ${riskBadge(d)}</h4>
       <div style="font-family:var(--mono);font-size:12px;color:var(--ink-low)">${escHtml(d.mint)}</div>

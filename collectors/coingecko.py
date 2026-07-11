@@ -154,6 +154,7 @@ async def fetch_catalog_coins(http: aiohttp.ClientSession) -> list[dict] | None:
             "current_price": coin.get("current_price"),
             "total_volume": coin.get("total_volume"),
             "price_change_percentage_24h": coin.get("price_change_percentage_24h"),
+            "ath_change_percentage": coin.get("ath_change_percentage"),
         }
 
     for category in CATEGORIES:
@@ -245,6 +246,7 @@ async def run_catalog_sync(db: AsyncSession) -> list[Token]:
                 token.market_cap = coin["market_cap"]
                 token.volume_h24 = coin["total_volume"]
                 token.price_change_h24 = coin["price_change_percentage_24h"]
+                token.ath_change_pct = coin["ath_change_percentage"]
                 token.metrics_updated_at = now
             continue
         token = Token(
@@ -259,6 +261,7 @@ async def run_catalog_sync(db: AsyncSession) -> list[Token]:
             price_usd=coin["current_price"],
             volume_h24=coin["total_volume"],
             price_change_h24=coin["price_change_percentage_24h"],
+            ath_change_pct=coin["ath_change_percentage"],
             metrics_updated_at=now,
             last_seen_at=now,
         )

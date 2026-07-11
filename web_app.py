@@ -38,6 +38,7 @@ def _token_dict(t: Token) -> dict:
         "price_usd": t.price_usd, "liquidity_usd": t.liquidity_usd,
         "volume_h24": t.volume_h24, "market_cap": t.market_cap,
         "price_change_h24": t.price_change_h24,
+        "ath_change_pct": t.ath_change_pct,
         "pair_created_at": _dt(t.pair_created_at), "dex_id": t.dex_id,
         "risk_score": t.risk_score, "risk_level": t.risk_level,
         "risk_flags": t.risk_flags or [],

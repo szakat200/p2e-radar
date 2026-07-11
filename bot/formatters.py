@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from analyzer.risk_engine import RiskReport
 
-SEVERITY_ICON = {"critical": "🔴", "high": "🟠", "medium": "🟡", "info": "ℹ️"}
+SEVERITY_ICON = {"critical": "🔴", "high": "🟠", "medium": "🟡", "info": "ℹ️", "good": "✅"}
 LEVEL_LABEL = {"low": "🟢 НИЗКИЙ", "medium": "🟡 СРЕДНИЙ", "high": "🔴 ВЫСОКИЙ"}
 
 
@@ -72,12 +72,18 @@ def format_check_report(mint: str, market: dict | None, security: dict | None,
         "",
         f"Риск: <b>{report.score}/100 — {LEVEL_LABEL[report.level]}</b>",
     ]
-    if report.flags:
+    reds = [f for f in report.flags if f.severity != "good"]
+    greens = [f for f in report.flags if f.severity == "good"]
+    if reds:
         lines.append("")
-        for f in report.flags:
+        for f in reds:
             lines.append(f"{SEVERITY_ICON[f.severity]} <b>{esc(f.title)}</b> — {esc(f.detail)}")
     else:
-        lines.append("✅ Красных флагов не найдено")
+        lines.append("\n✅ Красных флагов не найдено")
+    if greens:
+        lines.append("")
+        for f in greens:
+            lines.append(f"✅ <b>{esc(f.title)}</b> — {esc(f.detail)}")
     return "\n".join(lines)
 
 

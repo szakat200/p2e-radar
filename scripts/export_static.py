@@ -81,6 +81,7 @@ async def fetch_catalog(http: aiohttp.ClientSession) -> list[dict]:
         "volume_h24": c["total_volume"],
         "market_cap": c["market_cap"],
         "price_change_h24": c["price_change_percentage_24h"],
+        "ath_change_pct": c.get("ath_change_percentage"),
         "pair_created_at": None, "dex_id": None,
         "risk_score": None, "risk_level": None, "risk_flags": [],
         "links": None, "description": None,
@@ -133,6 +134,7 @@ async def full_check(http: aiohttp.ClientSession, row: dict) -> dict:
             "market_cap": row.get("market_cap"),
             "volume_h24": row.get("volume_h24"),
             "price_change_h24": row.get("price_change_h24"),
+            "ath_change_pct": row.get("ath_change_pct"),
         }
     report = evaluate(eval_market, security, mint)
 

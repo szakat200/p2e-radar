@@ -44,6 +44,7 @@ async def recompute_risk(db: AsyncSession, token: Token) -> RiskReport:
             "market_cap": token.market_cap,
             "price_change_h24": token.price_change_h24,
             "pair_created_at": token.pair_created_at,
+            "ath_change_pct": token.ath_change_pct,
         }
     sec_row = (await db.execute(
         select(TokenSecurity).where(TokenSecurity.token_id == token.id)
@@ -55,6 +56,7 @@ async def recompute_risk(db: AsyncSession, token: Token) -> RiskReport:
             "freeze_authority_active": sec_row.freeze_authority_active,
             "top10_holder_pct": sec_row.top10_holder_pct,
             "lp_locked_pct": sec_row.lp_locked_pct,
+            "holders_count": sec_row.holders_count,
         }
     report = evaluate(market, security, token.mint)
     apply_risk_to_token(token, report)

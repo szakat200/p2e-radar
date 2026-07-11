@@ -98,6 +98,17 @@ async def send_token_alerts(db: AsyncSession, bot: Bot, token: Token,
                 f"📉 <b>Обвал цены</b> {label}\n"
                 f"−{drop:.0f}% за 24ч: {fmt_usd(ref_price)} → {fmt_usd(price_usd)}\n"
                 f"<code>{esc(mint)}</code>")
+        elif ref_price > 0 and price_usd > ref_price * (1 + config.ALERT_PRICE_PUMP_PCT):
+            # Урок 3-летнего анализа: памп в медвежьем секторе — точка выхода,
+            # а не подтверждение роста (AXS янв 2026: +270% -> -70%)
+            pump = (price_usd / ref_price - 1) * 100
+            await _send_once(
+                db, bot, "PRICE_PUMP", mint, f"pricepump:{today}",
+                f"🚀 <b>Памп</b> {label}: +{pump:.0f}% за 24ч "
+                f"({fmt_usd(ref_price)} → {fmt_usd(price_usd)})\n"
+                f"💡 Исторически памп P2E-токена — окно фиксации прибыли, "
+                f"а не сигнал на вход.\n"
+                f"<code>{esc(mint)}</code>")
 
     # Новые critical/high флаги
     current = {f["code"]: f for f in risk_flags}
