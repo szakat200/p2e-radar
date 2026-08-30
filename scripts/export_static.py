@@ -20,7 +20,7 @@ sys.path.insert(0, str(BASE_DIR))
 import aiohttp  # noqa: E402
 
 from analyzer.risk_engine import evaluate  # noqa: E402
-from collectors import coingecko  # noqa: E402
+from collectors import coingecko, solgames  # noqa: E402
 from collectors.dexscreener import get_market  # noqa: E402
 from collectors.onchain import get_security  # noqa: E402
 
@@ -28,6 +28,10 @@ SITE_DIR = BASE_DIR / "_site"
 DATA_DIR = SITE_DIR / "data"
 TOP_N_FULL_CHECK = 20  # сколько топ-токенов каталога проверять полностью
 CHECK_DELAY = 1.0      # пауза между полными проверками (rate limits)
+
+GAMES_ONCHAIN_CHECK = 30  # игр с on-chain проверкой (топ по капе + свежие запуски)
+GAMES_ABOUT = 24          # для скольких игр тянуть подробное описание
+FRESH_DAYS = 30           # «свежий запуск»
 
 
 def _dt_iso(v) -> str | None:
@@ -119,6 +123,87 @@ async def fetch_catalog(http: aiohttp.ClientSession) -> list[dict]:
     return merged
 
 
+def _days_since(launch_date: str | None) -> int | None:
+    if not launch_date:
+        return None
+    try:
+        launched = datetime.fromisoformat(str(launch_date)[:10]).date()
+    except ValueError:
+        return None
+    return (datetime.now(timezone.utc).date() - launched).days
+
+
+def _onchain_queue(games: list[dict]) -> list[dict]:
+    """Кого проверять on-chain: свежие запуски + топ по капитализации.
+
+    Свежие идут первыми: именно в них решение «входить или нет» принимается
+    сейчас, а у зрелых игр риск и так медленно меняется.
+    """
+    tradeable = [g for g in games if g["token_tradeable"]]
+    fresh = sorted(
+        (g for g in tradeable
+         if (_days_since(g["launch_date"]) or 999) <= FRESH_DAYS),
+        key=lambda g: g["launch_date"] or "", reverse=True)
+    top = sorted(tradeable, key=lambda g: g["market_cap"] or 0, reverse=True)
+    queue: list[dict] = []
+    for game in fresh + top:
+        if game not in queue:
+            queue.append(game)
+        if len(queue) >= GAMES_ONCHAIN_CHECK:
+            break
+    return queue
+
+
+async def build_games(http: aiohttp.ClientSession) -> list[dict]:
+    """Каталог игр solgames + оценка риска токена + файлы деталей."""
+    games = await solgames.fetch_games()
+    if not games:
+        raise RuntimeError("solgames fetch failed")
+
+    onchain_for = {id(g) for g in _onchain_queue(games)}
+    (DATA_DIR / "games").mkdir(parents=True, exist_ok=True)
+
+    for game in games:
+        game["days_since_launch"] = _days_since(game["launch_date"])
+        security = None
+        if id(game) in onchain_for:
+            security = await get_security(http, game["token_mint"])
+            await asyncio.sleep(CHECK_DELAY)
+        market = solgames.to_market(game)
+        if market:
+            # Риск без on-chain — только рыночная часть: это честнее, чем «не оценён»
+            report = evaluate(market, security, game["token_mint"])
+            game["risk_score"] = report.score
+            game["risk_level"] = report.level
+            game["risk_flags"] = [f.as_dict() for f in report.flags]
+            game["risk_depth"] = "full" if security else "market"
+        else:
+            game["risk_score"] = None
+            game["risk_level"] = None
+            game["risk_flags"] = []
+            game["risk_depth"] = "none"
+        game["security"] = security
+        game["pair_created_at"] = _dt_iso(game["pair_created_at"])
+        game["source_first_seen_at"] = _dt_iso(game["source_first_seen_at"])
+        game["source_updated_at"] = _dt_iso(game["source_updated_at"])
+
+    # Подробные описания — только тем, кого реально будут открывать
+    detailed = sorted(games, key=lambda g: (g["days_since_launch"] is not None
+                                            and g["days_since_launch"] <= FRESH_DAYS,
+                                            g["market_cap"] or 0), reverse=True)
+    for game in detailed[:GAMES_ABOUT]:
+        full = await solgames.fetch_game(game["slug"])
+        if full and full.get("about"):
+            game["about"] = full["about"]
+
+    for game in games:
+        (DATA_DIR / "games" / f"{game['slug']}.json").write_text(
+            json.dumps(game, ensure_ascii=False), encoding="utf-8")
+
+    games.sort(key=lambda g: (g["launch_date"] or "0000-00-00"), reverse=True)
+    return games
+
+
 async def full_check(http: aiohttp.ClientSession, row: dict) -> dict:
     """Полная проверка: DexScreener + RugCheck/RPC + risk engine. Обновляет row."""
     mint = row["mint"]
@@ -190,6 +275,7 @@ async def main() -> None:
         (BASE_DIR / "watchlist.json").read_text(encoding="utf-8"))["mints"]
 
     async with aiohttp.ClientSession() as http:
+        games = await build_games(http)
         catalog = await fetch_catalog(http)
         by_mint = {r["mint"]: r for r in catalog}
 
@@ -216,12 +302,21 @@ async def main() -> None:
             checked += 1
 
     watch_rows.sort(key=lambda r: r["risk_score"] or 0, reverse=True)
+    fresh_games = [g for g in games
+                   if (g["days_since_launch"] is not None
+                       and g["days_since_launch"] <= FRESH_DAYS)]
+    (DATA_DIR / "games.json").write_text(
+        json.dumps(games, ensure_ascii=False), encoding="utf-8")
     (DATA_DIR / "catalog.json").write_text(
         json.dumps(catalog, ensure_ascii=False), encoding="utf-8")
     (DATA_DIR / "tokens.json").write_text(
         json.dumps(watch_rows, ensure_ascii=False), encoding="utf-8")
     (DATA_DIR / "alerts.json").write_text("[]", encoding="utf-8")
     (DATA_DIR / "stats.json").write_text(json.dumps({
+        "games_total": len(games),
+        "games_new_30d": len(fresh_games),
+        "games_with_token": sum(1 for g in games if g["token_tradeable"]),
+        "players_online": sum(g["live_online"] or 0 for g in games),
         "catalog_total": len(catalog),
         "watched": len(watch_rows),
         "watched_high_risk": sum(1 for r in watch_rows if r["risk_level"] == "high"),
@@ -230,7 +325,8 @@ async def main() -> None:
     }), encoding="utf-8")
 
     shutil.copy(BASE_DIR / "web" / "index.html", SITE_DIR / "index.html")
-    print(f"OK: {len(catalog)} catalog, {len(watch_rows)} watched, "
+    print(f"OK: {len(games)} games ({len(fresh_games)} свежих), "
+          f"{len(catalog)} catalog, {len(watch_rows)} watched, "
           f"{checked} top checked -> {SITE_DIR}")
 
 

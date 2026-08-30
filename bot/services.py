@@ -1,4 +1,6 @@
-"""Общая логика проверки токена — используется хендлерами и алертами."""
+"""Общая логика проверки токена и игры — используется хендлерами и алертами."""
+import asyncio
+import logging
 import re
 from datetime import datetime
 
@@ -9,7 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from analyzer.risk_engine import RiskReport, evaluate
 from collectors.dexscreener import apply_market_to_token, get_market
 from collectors.onchain import get_security, upsert_security
-from db.models import Token, TokenSecurity, TokenSnapshot
+from collectors.solgames import to_market
+from db.models import Game, Token, TokenSecurity, TokenSnapshot
+
+logger = logging.getLogger(__name__)
 
 _MINT_RE = re.compile(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$")  # base58, без 0OIl
 
@@ -24,6 +29,33 @@ async def live_check(mint: str) -> tuple[dict | None, dict | None, RiskReport]:
         market = await get_market(http, mint)
         security = await get_security(http, mint)
     return market, security, evaluate(market, security, mint)
+
+
+ONCHAIN_DELAY = 1.0  # пауза между RugCheck-запросами
+
+
+async def score_games(db: AsyncSession, games: list[Game]) -> None:
+    """Проставить играм риск их токена.
+
+    Рынок берём из каталога solgames (он там уже свежий), из сети тянем
+    только on-chain: mint/freeze authority, концентрация холдеров, LP.
+    Игры без торгуемого токена получают risk_score = None — это не «чисто»,
+    а «нечего оценивать», UI показывает их отдельно.
+    """
+    targets = [g for g in games if g.token_tradeable and g.token_mint]
+    if not targets:
+        return
+    now = datetime.utcnow()
+    async with aiohttp.ClientSession() as http:
+        for game in targets:
+            security = await get_security(http, game.token_mint)
+            report = evaluate(to_market(game), security, game.token_mint)
+            game.risk_score = report.score
+            game.risk_level = report.level
+            game.risk_flags = [f.as_dict() for f in report.flags]
+            game.risk_updated_at = now
+            await asyncio.sleep(ONCHAIN_DELAY)
+    logger.info("Games risk: оценено %d игр", len(targets))
 
 
 def apply_risk_to_token(token: Token, report: RiskReport) -> None:

@@ -7,9 +7,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.formatters import esc, fmt_usd
+from bot.formatters import days_since, esc, fmt_usd, format_game
 from config import config
-from db.models import AlertLog, Token, TokenSnapshot
+from db.models import AlertLog, Game, Token, TokenSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,24 @@ async def _send_once(db: AsyncSession, bot: Bot, alert_type: str,
     except Exception:
         logger.exception("alert send failed: %s %s", alert_type, entity_key)
     return True
+
+
+FRESH_LAUNCH_DAYS = 30  # запуск свежее — помечаем как «ранний вход»
+
+
+async def send_new_game_alerts(db: AsyncSession, bot: Bot,
+                               new_games: list[Game]) -> None:
+    """Новая игра появилась в каталоге solgames — главный сигнал радара."""
+    # Рендер до отправки: rollback при дедупе инвалидирует ORM-объекты
+    cards = []
+    for game in new_games:
+        days = days_since(game.launch_date)
+        early = days is not None and days <= FRESH_LAUNCH_DAYS
+        header = ("🆕 <b>Новая игра на Solana</b>"
+                  + (f" — запуск {days} дн. назад" if early else ""))
+        cards.append((game.slug, f"{header}\n\n{format_game(game)}"))
+    for slug, text in cards:
+        await _send_once(db, bot, "NEW_GAME", slug, slug, text)
 
 
 async def send_new_catalog_alerts(db: AsyncSession, bot: Bot,

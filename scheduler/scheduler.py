@@ -11,6 +11,35 @@ from db.database import AsyncSessionLocal
 logger = logging.getLogger(__name__)
 
 
+RISK_REFRESH_PER_RUN = 25  # сколько игр переоценивать за прогон (RugCheck ~1 req/сек)
+
+
+async def _job_games(bot: Bot) -> None:
+    """Основной синк: каталог игр solgames -> риск -> алерты о новых играх."""
+    from sqlalchemy import select
+
+    from bot.alerts import send_new_game_alerts
+    from bot.services import score_games
+    from collectors.solgames import run_games_sync
+    from db.models import Game
+
+    async with AsyncSessionLocal() as db:
+        new_games = await run_games_sync(db)
+
+        # Новые — в первую очередь, остальные добираем по давности оценки
+        stale = (await db.execute(
+            select(Game)
+            .where(Game.inactive.is_(False), Game.token_tradeable.is_(True))
+            .order_by(Game.risk_updated_at.asc().nullsfirst())
+            .limit(RISK_REFRESH_PER_RUN))).scalars().all()
+        queue = list(new_games) + [g for g in stale if g not in new_games]
+        await score_games(db, queue[:RISK_REFRESH_PER_RUN])
+        await db.commit()
+
+        if new_games:
+            await send_new_game_alerts(db, bot, new_games)
+
+
 async def _job_catalog(bot: Bot) -> None:
     from bot.alerts import send_new_catalog_alerts
     from collectors.coingecko import run_catalog_sync
@@ -48,6 +77,11 @@ async def _job_onchain(bot: Bot) -> None:
 
 def create_scheduler(bot: Bot) -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler(timezone="UTC")
+    scheduler.add_job(
+        _job_games, args=[bot],
+        trigger=IntervalTrigger(minutes=config.GAMES_SYNC_MINUTES),
+        id="games_sync", name="solgames games sync",
+        replace_existing=True, misfire_grace_time=600)
     scheduler.add_job(
         _job_catalog, args=[bot],
         trigger=IntervalTrigger(hours=config.CATALOG_SYNC_HOURS),

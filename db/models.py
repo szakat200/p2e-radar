@@ -1,4 +1,4 @@
-"""Модели БД: токены, снапшоты метрик, on-chain безопасность, лог алертов."""
+"""Модели БД: игры, токены, снапшоты метрик, on-chain безопасность, лог алертов."""
 from datetime import datetime
 
 from sqlalchemy import (
@@ -19,6 +19,68 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 class Base(DeclarativeBase):
     pass
+
+
+class Game(Base):
+    """Игра на Solana из каталога solgames.buzz — основная сущность радара.
+
+    Игра может быть без токена (token_mint = None): такие тоже интересны,
+    ранний вход в них обычно и есть весь смысл.
+    """
+
+    __tablename__ = "games"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    solgames_id: Mapped[int | None] = mapped_column(Integer)
+
+    name: Mapped[str | None] = mapped_column(String(160))
+    tagline: Mapped[str | None] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text)
+    genre: Mapped[str | None] = mapped_column(String(64), index=True)
+    tags: Mapped[list | None] = mapped_column(JSON)
+
+    url: Mapped[str | None] = mapped_column(String(256))
+    twitter: Mapped[str | None] = mapped_column(String(256))
+    solgames_url: Mapped[str | None] = mapped_column(String(256))
+    image_url: Mapped[str | None] = mapped_column(String(512))
+
+    launch_date: Mapped[str | None] = mapped_column(String(16), index=True)  # YYYY-MM-DD
+    launch_stage: Mapped[str | None] = mapped_column(String(32))   # mainnet | beta | alpha…
+    launch_access: Mapped[str | None] = mapped_column(String(32))  # open | invite | waitlist
+    status: Mapped[str | None] = mapped_column(String(32))         # enriched | new | verified
+
+    # Внимание рынка
+    buzz_score: Mapped[float | None] = mapped_column(Float)
+    buzz_delta_24h: Mapped[float | None] = mapped_column(Float)
+    live_online: Mapped[int | None] = mapped_column(Integer)  # игроков онлайн, если игра отдаёт
+    mention_count: Mapped[int | None] = mapped_column(Integer)
+    twitter_followers: Mapped[int | None] = mapped_column(Integer)
+
+    # Токен игры (может отсутствовать)
+    token_mint: Mapped[str | None] = mapped_column(String(64), index=True)
+    token_symbol: Mapped[str | None] = mapped_column(String(32))
+    token_tradeable: Mapped[bool] = mapped_column(Boolean, default=False)
+    price_usd: Mapped[float | None] = mapped_column(Float)
+    price_change_h24: Mapped[float | None] = mapped_column(Float)
+    market_cap: Mapped[float | None] = mapped_column(Float)
+    liquidity_usd: Mapped[float | None] = mapped_column(Float)
+    volume_h24: Mapped[float | None] = mapped_column(Float)
+    ath_market_cap: Mapped[float | None] = mapped_column(Float)
+    mcap_delta_24h: Mapped[float | None] = mapped_column(Float)
+    pair_created_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    # Оценка риска токена игры — тот же risk_engine, что и для токенов
+    risk_score: Mapped[int | None] = mapped_column(Integer)
+    risk_level: Mapped[str | None] = mapped_column(String(8))
+    risk_flags: Mapped[list | None] = mapped_column(JSON)
+    risk_updated_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    inactive: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    source_first_seen_at: Mapped[datetime | None] = mapped_column(DateTime)
+    source_updated_at: Mapped[datetime | None] = mapped_column(DateTime)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class Token(Base):

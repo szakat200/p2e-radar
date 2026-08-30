@@ -240,6 +240,83 @@ body {
 .tok-mcap small { display: block; font-size: 10px; color: var(--ink-low); font-family: Inter, sans-serif; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; }
 .tok-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 
+/* ===== Карточки игр ===== */
+.game-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
+  gap: 20px;
+}
+.game-card {
+  position: relative; display: flex; flex-direction: column;
+  background: var(--glass); border: 1px solid var(--line-soft);
+  border-radius: var(--r); overflow: hidden; cursor: pointer;
+  transition: transform var(--t), border-color var(--t), box-shadow var(--t);
+}
+.game-card:hover {
+  transform: translateY(-4px); border-color: var(--line-strong);
+  box-shadow: var(--glow-v), 0 18px 44px rgba(0,0,0,0.5);
+}
+.game-shot {
+  position: relative; aspect-ratio: 16 / 9; background: var(--bg-deep);
+  border-bottom: 1px solid var(--line-soft); overflow: hidden;
+}
+.game-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.game-shot::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 40%, rgba(5,3,15,0.85) 100%);
+}
+.game-shot-ph {
+  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+  font-family: var(--display); font-size: 30px; color: var(--neon-v);
+  background: radial-gradient(circle at 50% 40%, rgba(167,139,250,0.18), transparent 70%);
+}
+.game-stamp {
+  position: absolute; top: 10px; left: 10px; z-index: 2;
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 999px; backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.14); background: rgba(5,3,15,0.6); color: var(--ink);
+}
+.game-stamp.fresh { color: #0b0518; background: var(--neon-c); border-color: transparent; }
+.game-stamp.today { color: #0b0518; background: var(--neon-p); border-color: transparent; }
+.game-online {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 999px;
+  background: rgba(5,3,15,0.6); border: 1px solid rgba(52,211,153,0.4); color: var(--ok);
+  backdrop-filter: blur(8px);
+}
+.game-body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.game-name { font-weight: 800; font-size: 16px; color: var(--ink-hi); line-height: 1.25; }
+.game-sub { color: var(--ink-mid); font-size: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+.game-tag {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700;
+  color: var(--neon-v); background: var(--v-soft); border: 1px solid rgba(167,139,250,0.25);
+  padding: 2px 8px; border-radius: 999px;
+}
+.game-money {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding-top: 4px; margin-top: auto;
+}
+.game-mcap { font-family: var(--mono); font-size: 17px; font-weight: 700; color: var(--ink-hi); }
+.game-mcap small {
+  display: block; font-size: 9.5px; color: var(--ink-low); letter-spacing: 0.1em;
+  font-family: Inter, sans-serif; text-transform: uppercase; font-weight: 700;
+}
+.game-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+.filter-btn {
+  font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  padding: 7px 14px; border-radius: 999px; color: var(--ink-mid);
+  background: var(--glass); border: 1px solid var(--line-soft); transition: all var(--t);
+}
+.filter-btn:hover { color: var(--ink-hi); border-color: var(--line-strong); }
+.filter-btn.active {
+  color: #0b0518; background: var(--grad); border-color: transparent; box-shadow: var(--glow-v);
+}
+.game-about {
+  color: var(--ink); font-size: 13.5px; line-height: 1.7; margin: 16px 0 6px;
+  max-width: 760px; white-space: pre-wrap;
+}
+.game-about b { color: var(--ink-hi); }
+
 /* ===== Tables ===== */
 .tbl-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -367,8 +444,9 @@ tr.rowlink:hover { background: var(--v-soft); }
 <div class="app">
   <aside class="sidebar">
     <div class="brand">P2E<br>RDR</div>
-    <button class="nav-btn active" data-page="overview">◈<small>Обзор</small></button>
-    <button class="nav-btn" data-page="catalog">🎮<small>Игры</small></button>
+    <button class="nav-btn active" data-page="games">🎮<small>Игры</small></button>
+    <button class="nav-btn" data-page="overview">◈<small>Обзор</small></button>
+    <button class="nav-btn" data-page="catalog">🪙<small>Токены</small></button>
     <button class="nav-btn" data-page="watchlist">👁<small>Вотч</small></button>
     <button class="nav-btn" data-page="alerts">⚡<small>Алерты</small></button>
   </aside>
@@ -380,21 +458,34 @@ const $ = (sel, el = document) => el.querySelector(sel);
 const content = $('#content');
 let cache = {};
 
-// GitHub Pages / file:// — читаем статические JSON вместо живого API
-const IS_STATIC = location.protocol === 'file:' || location.hostname.endsWith('.github.io');
+// Статический хостинг (GitHub Pages, file://, любой другой) — читаем JSON из data/.
+// Если живого API нет, первый же промах переключает режим на статику навсегда.
+let IS_STATIC = location.protocol === 'file:' || location.hostname.endsWith('.github.io');
 
 function staticPath(path) {
   const clean = path.split('?')[0];
   if (clean.startsWith('/tokens/')) return 'data/tokens/' + clean.slice('/tokens/'.length) + '.json';
-  return 'data' + clean + '.json'; // /stats /catalog /tokens /alerts
+  if (clean.startsWith('/games/')) return 'data/games/' + clean.slice('/games/'.length) + '.json';
+  return 'data' + clean + '.json'; // /stats /games /catalog /tokens /alerts
+}
+
+async function fetchJson(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
 }
 
 async function api(path) {
   if (cache[path]) return cache[path];
-  const url = IS_STATIC ? staticPath(path) : '/api' + path;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  const data = await r.json();
+  let data;
+  if (!IS_STATIC) {
+    try {
+      data = await fetchJson('/api' + path);
+    } catch (e) {
+      IS_STATIC = true;  // API нет — дальше работаем от статических JSON
+    }
+  }
+  if (data === undefined) data = await fetchJson(staticPath(path));
   cache[path] = data;
   return data;
 }
@@ -444,31 +535,245 @@ function flagChips(flags, max = 4) {
   return shown.join('');
 }
 
+/* ===== Игры ===== */
+
+const FRESH_DAYS = 30;
+
+function daysSince(launchDate) {
+  if (!launchDate) return null;
+  const d = new Date(launchDate + 'T00:00:00Z');
+  if (isNaN(d)) return null;
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+
+function ageStamp(g) {
+  const d = g.days_since_launch != null ? g.days_since_launch : daysSince(g.launch_date);
+  if (d == null) return '<span class="game-stamp">дата ?</span>';
+  if (d <= 1) return `<span class="game-stamp today">${d === 0 ? 'сегодня' : 'вчера'}</span>`;
+  if (d <= FRESH_DAYS) return `<span class="game-stamp fresh">${d} дн. назад</span>`;
+  if (d < 365) return `<span class="game-stamp">${d} дн.</span>`;
+  return `<span class="game-stamp">${(d / 365).toFixed(1)} г.</span>`;
+}
+
+function gameShot(g) {
+  if (g.image_url) {
+    return `<img loading="lazy" src="${escHtml(g.image_url)}" alt=""
+      onerror="this.parentNode.innerHTML='<div class=&quot;game-shot-ph&quot;>${escHtml((g.name || '?')[0])}</div>'">`;
+  }
+  return `<div class="game-shot-ph">${escHtml((g.name || '?')[0])}</div>`;
+}
+
+function tokenLine(g) {
+  if (!g.token_tradeable) {
+    return g.token_mint
+      ? '<span class="chip">токен не торгуется</span>'
+      : '<span class="chip info">токена ещё нет</span>';
+  }
+  return `<span class="chip" title="Ликвидность на Solana DEX">liq ${fmtUsd(g.liquidity_usd)}</span>`;
+}
+
+function gameCard(g) {
+  const stage = g.launch_stage ? ` · ${escHtml(g.launch_stage)}` : '';
+  return `<div class="game-card" data-slug="${escHtml(g.slug)}">
+    <div class="game-shot">${ageStamp(g)}${g.live_online != null
+      ? `<span class="game-online">● ${g.live_online} онлайн</span>` : ''}${gameShot(g)}</div>
+    <div class="game-body">
+      <div class="game-name">${escHtml(g.name || g.slug)}</div>
+      <div class="game-sub"><span class="game-tag">${escHtml(g.genre || 'game')}</span>
+        <span>${escHtml(g.token_symbol ? '$' + g.token_symbol
+          : (g.token_mint ? 'токен без тикера' : 'без токена'))}${stage}</span></div>
+      <div class="game-money">
+        <div class="game-mcap"><small>Market cap</small>${g.token_tradeable ? fmtUsd(g.market_cap) : '—'}</div>
+        <div class="num" style="font-size:15px">${g.token_tradeable ? fmtPct(g.price_change_h24) : ''}</div>
+      </div>
+      <div class="game-foot">${riskBadge(g)}${tokenLine(g)}</div>
+    </div>
+  </div>`;
+}
+
+function bindGames() {
+  content.querySelectorAll('.game-card').forEach(el =>
+    el.addEventListener('click', () => showGame(el.dataset.slug)));
+}
+
+const GAME_FILTERS = {
+  fresh: {label: 'Свежие (30 дней)', pick: (gs) => gs
+    .filter(g => (g.days_since_launch ?? daysSince(g.launch_date) ?? 9999) <= FRESH_DAYS)
+    .sort((a, b) => (b.launch_date || '').localeCompare(a.launch_date || ''))},
+  top: {label: 'Топ по капе', pick: (gs) => [...gs]
+    .sort((a, b) => (b.market_cap || 0) - (a.market_cap || 0))},
+  online: {label: 'С живым онлайном', pick: (gs) => gs
+    .filter(g => g.live_online != null)
+    .sort((a, b) => (b.live_online || 0) - (a.live_online || 0))},
+  safe: {label: 'Низкий риск', pick: (gs) => gs
+    .filter(g => g.risk_score != null)
+    .sort((a, b) => a.risk_score - b.risk_score)},
+  notoken: {label: 'Без токена', pick: (gs) => gs
+    .filter(g => !g.token_mint)
+    .sort((a, b) => (b.launch_date || '').localeCompare(a.launch_date || ''))},
+  all: {label: 'Все', pick: (gs) => [...gs]
+    .sort((a, b) => (b.launch_date || '').localeCompare(a.launch_date || ''))},
+};
+
+async function renderGames() {
+  const [games, stats] = await Promise.all([api('/games'), api('/stats')]);
+  const online = games.reduce((s, g) => s + (g.live_online || 0), 0);
+  const fresh = GAME_FILTERS.fresh.pick(games).length;
+  content.innerHTML = `<div class="page">
+    <div>
+      <div class="page-title">Игры <span class="accent">на Solana</span></div>
+      <div class="page-sub">${games.length} проверенных игр из каталога
+        <a href="https://solgames.buzz" target="_blank" rel="noopener">solgames.buzz</a>:
+        только Solana-native проекты с играбельным клиентом. Клик по карточке — разбор
+        игры и рисков её токена.</div>
+    </div>
+    <div class="hero">
+      <div class="hero-label">Свежие запуски за 30 дней</div>
+      <div class="hero-value">${fresh}</div>
+      <div class="hero-caption">${games.length} игр на радаре · ${games.filter(g => g.token_tradeable).length} с торгуемым токеном</div>
+      <div class="hero-row">
+        <div class="hero-stat"><div class="hs-label">Игроков онлайн</div>
+          <div class="hs-value">${online || '—'}</div></div>
+        <div class="hero-stat"><div class="hs-label">Без токена</div>
+          <div class="hs-value">${games.filter(g => !g.token_mint).length}</div></div>
+        <div class="hero-stat"><div class="hs-label">Высокий риск</div>
+          <div class="hs-value red">${games.filter(g => g.risk_level === 'high').length}</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="filters">${Object.entries(GAME_FILTERS).map(([k, f]) =>
+        `<button class="filter-btn${k === 'fresh' ? ' active' : ''}" data-f="${k}">${f.label}</button>`).join('')}</div>
+      <div class="search-row"><input id="gameSearch" placeholder="Поиск по названию, жанру или тикеру…"></div>
+      <div id="gameGrid"></div>
+      <div id="detail"></div>
+    </div>
+  </div>`;
+
+  let filter = 'fresh';
+  const draw = () => {
+    const q = ($('#gameSearch').value || '').trim().toLowerCase();
+    let list = q ? games.filter(g =>
+      (g.name || '').toLowerCase().includes(q) ||
+      (g.genre || '').toLowerCase().includes(q) ||
+      (g.token_symbol || '').toLowerCase().includes(q) ||
+      (g.tags || []).some(t => t.toLowerCase().includes(q))
+    ) : GAME_FILTERS[filter].pick(games);
+    $('#gameGrid').innerHTML = list.length
+      ? `<div class="game-grid">${list.map(gameCard).join('')}</div>`
+      : '<div class="empty">Ничего не нашлось. Попробуй другой фильтр или запрос.</div>';
+    bindGames();
+  };
+  content.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', () => {
+    filter = b.dataset.f;
+    $('#gameSearch').value = '';
+    content.querySelectorAll('.filter-btn').forEach(x => x.classList.toggle('active', x === b));
+    draw();
+  }));
+  $('#gameSearch').addEventListener('input', draw);
+  draw();
+}
+
+function mdLite(text) {
+  return escHtml(text)
+    .replace(/^#{1,6}\s*(.+)$/gm, '<b>$1</b>')
+    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
+async function showGame(slug) {
+  const host = $('#detail');
+  host.innerHTML = '<div class="loading">Загрузка игры…</div>';
+  try {
+    const g = await api('/games/' + slug);
+    const s = g.security;
+    const yn = (v, yes, no) => v == null ? '—' : (v ? yes : no);
+    const links = [
+      g.url && `<a class="link-btn primary" href="${escHtml(g.url)}" target="_blank" rel="noopener">🎮 Играть</a>`,
+      g.twitter && `<a class="link-btn" href="${escHtml(g.twitter)}" target="_blank" rel="noopener">𝕏 Twitter</a>`,
+      g.solgames_url && `<a class="link-btn" href="${escHtml(g.solgames_url)}" target="_blank" rel="noopener">📡 solgames</a>`,
+      g.token_mint && `<a class="link-btn" href="https://dexscreener.com/solana/${escHtml(g.token_mint)}" target="_blank" rel="noopener">📈 DexScreener</a>`,
+      g.token_mint && `<a class="link-btn" href="https://solscan.io/token/${escHtml(g.token_mint)}" target="_blank" rel="noopener">⛓ Solscan</a>`,
+    ].filter(Boolean).join('');
+    const flagRow = f => `
+      <div class="flag-row"><span class="chip ${escHtml(f.severity)}">${f.severity === 'good' ? '✅' : escHtml(f.severity)}</span>
+        <span class="flag-title">${escHtml(f.title)}</span> —
+        <span class="flag-detail">${escHtml(f.detail)}</span></div>`;
+    const reds = (g.risk_flags || []).filter(f => f.severity !== 'good');
+    const greens = (g.risk_flags || []).filter(f => f.severity === 'good');
+    const risk = g.risk_score == null
+      ? `<div class="flag-row" style="color:var(--ink-low)">У игры нет торгуемого токена — оценивать риск нечего. Это ранняя стадия: вход игрой, а не покупкой.</div>`
+      : (reds.length ? reds.map(flagRow).join('') : '<div class="flag-row">✅ Красных флагов нет</div>')
+        + greens.map(flagRow).join('')
+        + (g.risk_depth === 'market'
+          ? '<div class="footnote">Оценка по рыночным данным. On-chain (authority, холдеры, LP) проверяется у свежих запусков и топа — остальным: /check в боте.</div>' : '');
+    const athDrop = (g.market_cap && g.ath_market_cap)
+      ? ((g.market_cap / g.ath_market_cap - 1) * 100) : null;
+    host.innerHTML = `<div class="detail">
+      <h4>${escHtml(g.name || g.slug)}
+        <span style="color:var(--ink-low);font-size:14px">${escHtml(g.genre || '')}${g.token_symbol ? ' · $' + escHtml(g.token_symbol) : ''}</span>
+        ${riskBadge(g)}</h4>
+      <div style="font-size:12.5px;color:var(--ink-mid)">
+        Запуск: ${escHtml(g.launch_date || 'неизвестен')}${g.launch_stage ? ' · ' + escHtml(g.launch_stage) : ''}${g.launch_access ? ' · доступ: ' + escHtml(g.launch_access) : ''}</div>
+      ${g.tagline ? `<div class="game-desc">${escHtml(g.tagline)}</div>` : ''}
+      <div class="link-row">${links}</div>
+      <div class="kv">
+        ${g.token_tradeable ? `
+        <div>Цена<b>${fmtUsd(g.price_usd)}</b></div>
+        <div>24ч<b>${fmtPct(g.price_change_h24)}</b></div>
+        <div>Market cap<b>${fmtUsd(g.market_cap)}</b></div>
+        <div>Ликвидность<b>${fmtUsd(g.liquidity_usd)}</b></div>
+        <div>Объём 24ч<b>${fmtUsd(g.volume_h24)}</b></div>
+        ${athDrop != null ? `<div>От пика капы<b>${fmtPct(athDrop)}</b></div>` : ''}` : ''}
+        ${g.live_online != null ? `<div>Онлайн<b>${g.live_online}</b></div>` : ''}
+        ${g.twitter_followers ? `<div>Подписчиков в X<b>${g.twitter_followers.toLocaleString('ru-RU')}</b></div>` : ''}
+        ${s ? `
+        <div>Mint authority<b>${yn(s.mint_authority_active, '🔴 активен', '🟢 отозван')}</b></div>
+        <div>Freeze authority<b>${yn(s.freeze_authority_active, '🔴 активен', '🟢 отозван')}</b></div>
+        <div>Топ-10 холдеров<b>${s.top10_holder_pct != null ? s.top10_holder_pct.toFixed(0) + '%' : '—'}</b></div>
+        <div>Холдеров<b>${s.holders_count ?? '—'}</b></div>` : ''}
+      </div>
+      ${risk}
+      ${g.about ? `<div class="game-about">${mdLite(g.about)}</div>` : ''}
+      ${g.token_mint ? `<div style="font-family:var(--mono);font-size:12px;color:var(--ink-low);margin-top:14px">${escHtml(g.token_mint)}</div>` : ''}
+    </div>`;
+    host.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  } catch (e) {
+    host.innerHTML = `<div class="detail"><div class="empty">Не удалось загрузить игру: ${escHtml(e.message)}</div></div>`;
+  }
+}
+
 /* ===== Pages ===== */
 
 async function renderOverview() {
-  const [stats, tokens, alerts, catalog] = await Promise.all([
-    api('/stats'), api('/tokens'), api('/alerts?limit=5'), api('/catalog?limit=500')]);
-  const totalMcap = catalog.reduce((s, t) => s + (t.market_cap || 0), 0);
-  const gainers = catalog.filter(t => (t.price_change_h24 || 0) > 0).length;
+  const [stats, tokens, alerts, games] = await Promise.all([
+    api('/stats'), api('/tokens'), api('/alerts?limit=5'), api('/games')]);
+  const tradeable = games.filter(g => g.token_tradeable);
+  const totalMcap = tradeable.reduce((s, g) => s + (g.market_cap || 0), 0);
+  const freshGames = GAME_FILTERS.fresh.pick(games);
   const worst = tokens.slice(0, 5);
   content.innerHTML = `<div class="page">
     <div>
-      <div class="page-title">Рынок P2E <span class="accent">на Solana</span></div>
-      <div class="page-sub">Радар игровых токенов: каталог, ликвидность, on-chain безопасность и красные флаги — обновляется автоматически</div>
+      <div class="page-title">Радар <span class="accent">Solana-гейминга</span></div>
+      <div class="page-sub">Свежие запуски, капитализация игровых токенов, ликвидность, on-chain безопасность и красные флаги — обновляется автоматически раз в час</div>
     </div>
     <div class="hero">
-      <div class="hero-label">Суммарная капитализация каталога</div>
+      <div class="hero-label">Капитализация игр на радаре</div>
       <div class="hero-value">${fmtUsd(totalMcap)}</div>
-      <div class="hero-caption">${stats.catalog_total} игровых токенов · ${gainers} растут за 24ч</div>
+      <div class="hero-caption">${games.length} игр · ${tradeable.length} с торгуемым токеном · ${freshGames.length} запущены за 30 дней</div>
       <div class="hero-row">
+        <div class="hero-stat"><div class="hs-label">Игроков онлайн</div>
+          <div class="hs-value">${games.reduce((s, g) => s + (g.live_online || 0), 0) || '—'}</div></div>
         <div class="hero-stat"><div class="hs-label">В вотчлисте</div>
           <div class="hs-value">${stats.watched}</div></div>
         <div class="hero-stat"><div class="hs-label">Высокий риск</div>
-          <div class="hs-value red">${stats.watched_high_risk}</div></div>
-        <div class="hero-stat"><div class="hs-label">Алертов за 24ч</div>
-          <div class="hs-value">${stats.alerts_24h}</div></div>
+          <div class="hs-value red">${games.filter(g => g.risk_level === 'high').length}</div></div>
       </div>
+    </div>
+    <div class="panel">
+      <h3>Свежие запуски</h3>
+      ${freshGames.length
+        ? `<div class="game-grid">${freshGames.slice(0, 6).map(gameCard).join('')}</div>`
+        : '<div class="empty">За 30 дней новых запусков не было</div>'}
     </div>
     <div class="panel">
       <h3>Самые рискованные в вотчлисте</h3>
@@ -481,6 +786,7 @@ async function renderOverview() {
     </div>
   </div>`;
   bindRows();
+  bindGames();
 }
 
 function tokenTable(tokens) {
@@ -526,8 +832,8 @@ async function renderCatalog() {
   const extra = watched.filter(t => !catalogMints.has(t.mint));
   content.innerHTML = `<div class="page">
     <div>
-      <div class="page-title">Игры <span class="accent">каталог</span></div>
-      <div class="page-sub">${rows.length} P2E/gaming токенов на Solana из CoinGecko. Клик по карточке — детальный разбор рисков (топ-20 и вотчлист проверяются полностью).</div>
+      <div class="page-title">Токены <span class="accent">P2E-рынок</span></div>
+      <div class="page-sub">${rows.length} игровых токенов на Solana из CoinGecko — включая мосты и зрелые проекты, которых нет в каталоге игр. Клик по карточке — детальный разбор рисков (топ-20 и вотчлист проверяются полностью).</div>
     </div>
     <div class="panel">
       <div class="search-row"><input id="catSearch" placeholder="Поиск по названию, тикеру или mint…"></div>
@@ -653,6 +959,7 @@ async function renderAlerts() {
 }
 
 const pages = {
+  games: renderGames,
   overview: renderOverview,
   catalog: renderCatalog,
   watchlist: renderWatchlist,
@@ -674,7 +981,7 @@ async function navigate(page) {
 
 document.querySelectorAll('.nav-btn').forEach(b =>
   b.addEventListener('click', () => navigate(b.dataset.page)));
-navigate('overview');
+navigate('games');
 </script>
 </body>
 </html>

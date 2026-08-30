@@ -48,9 +48,9 @@ async def main() -> None:
     scheduler.start()
     logger.info("Scheduler started: %s", [j.id for j in scheduler.get_jobs()])
 
-    # Первый синк каталога — сразу, не ждать 6 часов
-    from scheduler.scheduler import _job_catalog
-    asyncio.create_task(_job_catalog(bot))
+    # Первый синк игр — сразу, не ждать час
+    from scheduler.scheduler import _job_games
+    asyncio.create_task(_job_games(bot))
 
     try:
         logger.info("Bot polling started")

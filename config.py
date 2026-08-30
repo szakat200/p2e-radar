@@ -24,6 +24,7 @@ class Config:
     DEXSCREENER_BASE: str = os.getenv("DEXSCREENER_BASE", "https://api.dexscreener.com")
     RUGCHECK_BASE: str = os.getenv("RUGCHECK_BASE", "https://api.rugcheck.xyz")
     COINGECKO_BASE: str = os.getenv("COINGECKO_BASE", "https://api.coingecko.com")
+    SOLGAMES_BASE: str = os.getenv("SOLGAMES_BASE", "https://solgames.buzz")
     HELIUS_API_KEY: str = os.getenv("HELIUS_API_KEY", "")
 
     @property
@@ -37,6 +38,8 @@ class Config:
         return self.ADMIN_IDS[0] if self.ADMIN_IDS else None
 
     # Интервалы задач
+    # Игры появляются в solgames по несколько штук в день — синк раз в час
+    GAMES_SYNC_MINUTES: int = int(os.getenv("GAMES_SYNC_MINUTES", "60"))
     CATALOG_SYNC_HOURS: int = int(os.getenv("CATALOG_SYNC_HOURS", "6"))
     MARKET_SYNC_MINUTES: int = int(os.getenv("MARKET_SYNC_MINUTES", "5"))
     ONCHAIN_SYNC_HOURS: int = int(os.getenv("ONCHAIN_SYNC_HOURS", "6"))

@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 
 from db.database import AsyncSessionLocal, init_db
-from db.models import AlertLog, Token, TokenSecurity, TokenSnapshot
+from db.models import AlertLog, Game, Token, TokenSecurity, TokenSnapshot
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 
@@ -47,14 +47,65 @@ def _token_dict(t: Token) -> dict:
     }
 
 
+GAME_FIELDS = (
+    "slug", "name", "tagline", "description", "genre", "tags", "url", "twitter",
+    "solgames_url", "image_url", "launch_date", "launch_stage", "launch_access",
+    "status", "buzz_score", "buzz_delta_24h", "live_online", "mention_count",
+    "twitter_followers", "token_mint", "token_symbol", "token_tradeable",
+    "price_usd", "price_change_h24", "market_cap", "liquidity_usd", "volume_h24",
+    "ath_market_cap", "mcap_delta_24h", "risk_score", "risk_level",
+)
+
+
+def _game_dict(g: Game) -> dict:
+    row = {f: getattr(g, f) for f in GAME_FIELDS}
+    row["risk_flags"] = g.risk_flags or []
+    row["tags"] = g.tags or []
+    row["pair_created_at"] = _dt(g.pair_created_at)
+    row["first_seen_at"] = _dt(g.first_seen_at)
+    row["risk_updated_at"] = _dt(g.risk_updated_at)
+    return row
+
+
 @app.get("/")
 async def index() -> FileResponse:
     return FileResponse(WEB_DIR / "index.html")
 
 
+@app.get("/api/games")
+async def games(q: str | None = None, limit: int = Query(300, ge=1, le=1000)) -> list:
+    async with AsyncSessionLocal() as db:
+        query = select(Game).where(Game.inactive.is_(False))
+        if q:
+            like = f"%{q}%"
+            query = query.where(Game.name.ilike(like) | Game.genre.ilike(like)
+                                | Game.token_symbol.ilike(like))
+        query = query.order_by(Game.launch_date.desc().nullslast()).limit(limit)
+        return [_game_dict(g) for g in (await db.execute(query)).scalars().all()]
+
+
+@app.get("/api/games/{slug}")
+async def game_detail(slug: str) -> dict:
+    async with AsyncSessionLocal() as db:
+        game = (await db.execute(
+            select(Game).where(Game.slug == slug))).scalar_one_or_none()
+        if not game:
+            raise HTTPException(404, "game not found")
+        return _game_dict(game)
+
+
 @app.get("/api/stats")
 async def stats() -> dict:
     async with AsyncSessionLocal() as db:
+        games_total = (await db.execute(
+            select(func.count()).select_from(Game)
+            .where(Game.inactive.is_(False)))).scalar()
+        month_ago = (datetime.utcnow() - timedelta(days=30)).date().isoformat()
+        games_new = (await db.execute(
+            select(func.count()).select_from(Game)
+            .where(Game.inactive.is_(False), Game.launch_date >= month_ago))).scalar()
+        games_online = (await db.execute(
+            select(func.sum(Game.live_online)).where(Game.inactive.is_(False)))).scalar()
         total = (await db.execute(
             select(func.count()).select_from(Token)
             .where(Token.source == "catalog"))).scalar()
@@ -67,7 +118,9 @@ async def stats() -> dict:
         alerts_24h = (await db.execute(
             select(func.count()).select_from(AlertLog)
             .where(AlertLog.sent_at >= day_ago))).scalar()
-        return {"catalog_total": total, "watched": watched,
+        return {"games_total": games_total, "games_new_30d": games_new,
+                "players_online": games_online or 0,
+                "catalog_total": total, "watched": watched,
                 "watched_high_risk": high_risk, "alerts_24h": alerts_24h}
 
 
