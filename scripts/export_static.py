@@ -31,6 +31,7 @@ CHECK_DELAY = 1.0      # пауза между полными проверкам
 
 GAMES_ONCHAIN_CHECK = 30  # игр с on-chain проверкой (топ по капе + свежие запуски)
 GAMES_ABOUT = 24          # для скольких игр тянуть подробное описание
+GAMES_ABOUT_VIA_READER = 8  # то же, но когда ходим через медленный ридер
 FRESH_DAYS = 30           # «свежий запуск»
 
 
@@ -227,7 +228,9 @@ async def build_games(http: aiohttp.ClientSession) -> list[dict]:
     detailed = sorted(games, key=lambda g: (g["days_since_launch"] is not None
                                             and g["days_since_launch"] <= FRESH_DAYS,
                                             g["market_cap"] or 0), reverse=True)
-    for game in detailed[:GAMES_ABOUT]:
+    # Через ридер каждый запрос стоит секунды — берём только верхушку
+    budget = GAMES_ABOUT_VIA_READER if solgames.used_reader else GAMES_ABOUT
+    for game in detailed[:budget]:
         full = await solgames.fetch_game(game["slug"])
         if full and full.get("about"):
             game["about"] = full["about"]

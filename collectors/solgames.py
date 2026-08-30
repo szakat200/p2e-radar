@@ -11,6 +11,7 @@ HTML сайта закрыт Cloudflare JS-challenge, но JSON API открыт
 import json
 import logging
 from datetime import datetime, timezone
+from urllib.parse import urlencode
 
 import httpx
 from sqlalchemy import select
@@ -37,6 +38,11 @@ _HEADERS = {
     "Sec-Fetch-Mode": "cors",
     "Sec-Fetch-Site": "same-origin",
 }
+
+# Запасной путь, когда Cloudflare режет прямой запрос (см. _get_via_reader)
+_READER_BASE = "https://r.jina.ai/"
+_READER_TIMEOUT = 90.0
+used_reader = False  # True, если в этом процессе хоть раз пришлось идти через ридер
 
 # Статусы проекта в solgames: rejected/inactive нас не интересуют
 ACTIVE_STATUSES = {"enriched", "new", "verified"}
@@ -156,19 +162,52 @@ def to_market(game) -> dict | None:
     }
 
 
-async def _get_json(path: str, params: dict | None = None) -> dict | None:
-    url = f"{config.SOLGAMES_BASE}{path}"
+async def _get_direct(url: str, params: dict | None) -> dict | None:
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT, headers=_HEADERS,
                                      follow_redirects=True) as client:
             resp = await client.get(url, params=params)
         if resp.status_code != 200:
-            logger.warning("solgames %s -> HTTP %s", path, resp.status_code)
+            logger.warning("solgames %s -> HTTP %s", url, resp.status_code)
             return None
         return resp.json()
     except Exception as e:
-        logger.error("solgames %s error: %s", path, e)
+        logger.error("solgames %s error: %s", url, e)
         return None
+
+
+async def _get_via_reader(url: str, params: dict | None) -> dict | None:
+    """Обход через r.jina.ai: Cloudflare отдаёт 403 на IP дата-центров (GitHub Actions).
+
+    Ридер возвращает текст вида "Title: …\n\nURL Source: …\n\nMarkdown Content:\n{json}",
+    поэтому JSON вырезаем от первой фигурной скобки до конца.
+    """
+    full = url + (("?" + urlencode(params)) if params else "")
+    try:
+        async with httpx.AsyncClient(timeout=_READER_TIMEOUT,
+                                     follow_redirects=True) as client:
+            resp = await client.get(_READER_BASE + full)
+        if resp.status_code != 200:
+            logger.warning("solgames reader %s -> HTTP %s", full, resp.status_code)
+            return None
+        start = resp.text.find("{")
+        if start < 0:
+            return None
+        data = json.loads(resp.text[start:])
+    except Exception as e:
+        logger.error("solgames reader %s error: %s", full, e)
+        return None
+    global used_reader
+    used_reader = True
+    return data
+
+
+async def _get_json(path: str, params: dict | None = None) -> dict | None:
+    url = f"{config.SOLGAMES_BASE}{path}"
+    data = await _get_direct(url, params)
+    if data is None:
+        data = await _get_via_reader(url, params)
+    return data
 
 
 async def fetch_games() -> list[dict] | None:
