@@ -154,14 +154,50 @@ def _onchain_queue(games: list[dict]) -> list[dict]:
     return queue
 
 
+async def _prev_games(http: aiohttp.ClientSession) -> list[dict]:
+    """Прошлый games.json с живого сайта — страховка, если solgames недоступен.
+
+    Строки games.json самодостаточны (риск, security, about внутри), так что из
+    них полностью восстанавливается и список, и файлы деталей.
+    """
+    url = os.environ.get("PREV_GAMES_URL")
+    if not url:
+        return []
+    try:
+        async with http.get(url, timeout=aiohttp.ClientTimeout(total=20)) as resp:
+            if resp.status != 200:
+                return []
+            prev = await resp.json(content_type=None)
+    except Exception:
+        return []
+    return prev if isinstance(prev, list) else []
+
+
+def _write_game_files(games: list[dict]) -> None:
+    (DATA_DIR / "games").mkdir(parents=True, exist_ok=True)
+    for game in games:
+        (DATA_DIR / "games" / f"{game['slug']}.json").write_text(
+            json.dumps(game, ensure_ascii=False), encoding="utf-8")
+
+
 async def build_games(http: aiohttp.ClientSession) -> list[dict]:
     """Каталог игр solgames + оценка риска токена + файлы деталей."""
     games = await solgames.fetch_games()
     if not games:
-        raise RuntimeError("solgames fetch failed")
+        # Cloudflare временами отвечает 403 на IP CI — лучше показать вчерашние
+        # данные, чем уронить сборку и оставить сайт без раздела игр вообще
+        stale = await _prev_games(http)
+        if not stale:
+            raise RuntimeError("solgames fetch failed and no previous games.json")
+        print(f"WARN: solgames недоступен, беру прошлый games.json ({len(stale)} игр)")
+        for game in stale:
+            game["days_since_launch"] = _days_since(game.get("launch_date"))
+            game["stale"] = True
+        _write_game_files(stale)
+        stale.sort(key=lambda g: (g.get("launch_date") or "0000-00-00"), reverse=True)
+        return stale
 
     onchain_for = {id(g) for g in _onchain_queue(games)}
-    (DATA_DIR / "games").mkdir(parents=True, exist_ok=True)
 
     for game in games:
         game["days_since_launch"] = _days_since(game["launch_date"])
@@ -196,10 +232,7 @@ async def build_games(http: aiohttp.ClientSession) -> list[dict]:
         if full and full.get("about"):
             game["about"] = full["about"]
 
-    for game in games:
-        (DATA_DIR / "games" / f"{game['slug']}.json").write_text(
-            json.dumps(game, ensure_ascii=False), encoding="utf-8")
-
+    _write_game_files(games)
     games.sort(key=lambda g: (g["launch_date"] or "0000-00-00"), reverse=True)
     return games
 

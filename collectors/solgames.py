@@ -25,7 +25,18 @@ logger = logging.getLogger(__name__)
 # посреди чанкед-стрима (Caddy за Cloudflare), curl/requests/httpx — нет.
 _TIMEOUT = 30.0
 _PAGE_LIMIT = 500
-_HEADERS = {"Accept": "application/json"}
+# Cloudflare перед solgames режет дефолтный python-UA (в GitHub Actions — сразу 403),
+# поэтому ходим с обычными браузерными заголовками
+_HEADERS = {
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"),
+    "Referer": "https://solgames.buzz/discover",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+}
 
 # Статусы проекта в solgames: rejected/inactive нас не интересуют
 ACTIVE_STATUSES = {"enriched", "new", "verified"}

@@ -36,6 +36,7 @@ jobs:
       - name: Export static site
         env:
           PREV_CATALOG_URL: https://szakat200.github.io/p2e-radar/data/catalog.json
+          PREV_GAMES_URL: https://szakat200.github.io/p2e-radar/data/games.json
         run: python scripts/export_static.py
 
       - uses: actions/configure-pages@v5
